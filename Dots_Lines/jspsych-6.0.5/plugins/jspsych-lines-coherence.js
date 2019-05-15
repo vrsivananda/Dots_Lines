@@ -23,6 +23,12 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		    trial_duration: {
 		      type: jsPsych.plugins.parameterType.INT,
 		      pretty_name: "Trial duration",
+		      default: -1,
+		      description: "The length of trial"
+		    },
+		    stimulus_duration: {
+		      type: jsPsych.plugins.parameterType.INT,
+		      pretty_name: "Stimulus duration",
 		      default: 500,
 		      description: "The length of stimulus presentation"
 		    },
@@ -31,6 +37,12 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		      pretty_name: "Response ends trial",
 		      default: true,
 		      description: "If true, then any valid key will end the trial"
+		    },
+		    response_during_stimulus: {
+		      type: jsPsych.plugins.parameterType.BOOL,
+		      pretty_name: "Response during stimulus",
+		      default: true,
+		      description: "If true, then the subject can respond at any time during or after the stimulus presentation"
 		    },
 		    //lines-coherence parameters start here
 		    number_of_stimuli: {
@@ -110,6 +122,30 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		      pretty_name: "Line space Y",
 		      default: 30,
 		      description: "The amount of space between each row, measured from the center of each row."
+		    },
+		    border: {
+		      type: jsPsych.plugins.parameterType.BOOL,
+		      pretty_name: "Border",
+		      default: true,
+		      description: "The presence of a border around the aperture"
+		    },
+		    border_thickness: {
+		      type: jsPsych.plugins.parameterType.INT,
+		      pretty_name: "Border thickness",
+		      default: 1,
+		      description: "The thickness of the border in pixels"
+		    },
+		    border_color: {
+		      type: jsPsych.plugins.parameterType.STRING,
+		      pretty_name: "Border Color",
+		      default: "black",
+		      description: "The color of the border"
+		    },
+		    border_radius: {
+		      type: jsPsych.plugins.parameterType.STRING,
+		      pretty_name: "Border Radius",
+		      default: 100,
+		      description: "The radius of the border"
 		    }
 	    }
 	 }
@@ -126,7 +162,9 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		trial.choices = assignParameterValue(trial.choices, []);
 		trial.correct_choice = assignParameterValue(trial.correct_choice, undefined);
 		trial.trial_duration = assignParameterValue(trial.trial_duration, 500);
+		trial.stimulus_duration = assignParameterValue(trial.stimulus_duration, 500);
 		trial.response_ends_trial = assignParameterValue(trial.response_ends_trial, true);
+		trial.response_during_stimulus = assignParameterValue(trial.response_during_stimulus, true);
 		//lines-coherence parameters start
 		trial.number_of_stimuli = assignParameterValue(trial.number_of_stimuli, 1);
 		trial.lines_per_row_array = assignParameterValue(trial.lines_per_row_array, [1,2,3,2,1]);
@@ -141,6 +179,10 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		trial.stimuli_center_y = assignParameterValue(trial.stimuli_center_y, window.innerHeight/2);
 		trial.line_space_x = assignParameterValue(trial.line_space_x, 60); 
 		trial.line_space_y = assignParameterValue(trial.line_space_y, 30);
+		trial.border = assignParameterValue(trial.border, true);
+		trial.border_thickness = assignParameterValue(trial.border_thickness, 1);
+		trial.border_color = assignParameterValue(trial.border_color, "black");
+		trial.border_radius = assignParameterValue(trial.border_radius, 1);
 		
 
 		//Convert the parameter variables to those that the code below can use
@@ -161,15 +203,14 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		var lineSpaceX = trial.line_space_x;
 		var lineSpaceY = trial.line_space_y;
 		
+		//Border Parameters
+		var border = trial.border;
+		var borderThickness = trial.border_thickness;
+		var borderColor = trial.border_color;
+		var borderRadius = trial.border_radius;
 		
-		//Variables below need to be added to the top and in the data
-		var border = true;
-		var borderRadius = 100;
-		var borderColor = "black";
-		var borderThickness = 2;
-		
-		var presentationDuration = 1000;
-
+		var stimulusDuration = trial.stimulus_duration;
+		var responseDuringStimulus = trial.response_during_stimulus;
 
 		//--------------------------------------
 		//----------SET PARAMETERS END----------
@@ -196,6 +237,10 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		body.style.backgroundColor = backgroundColor; //Match the background of the display element to the background color of the canvas so that the removal of the canvas at the end of the trial is not noticed
 		
 		document.getElementById('jspsych-content').style.maxWidth = "100%";
+		let progressBarElement = document.getElementById('jspsych-loading-progress-bar-container');
+		if(progressBarElement !== null){
+			progressBarElement.style.height = "0px";
+		}
 
 		//Remove the margins and padding of the canvas
 		canvas.style.margin = 0;
@@ -251,43 +296,15 @@ jsPsych.plugins["lines-coherence"] = (function() {
 			key: -1
 		}
 		
-		//Timer to end phase1 (stimulus presentation) and start phase2 (get mouse response)
-		setTimeout(startPhase2, presentationDuration)
+		//Variable to tell when to listen to responses
+		var openToResponse = responseDuringStimulus;
 		
-		function startPhase2(){
-			//Clear the rectangle
-		    loopThroughStimuli(drawLines, backgroundColor);
-			
-			
-			//Start the mouse response eventlistener
-			canvas.addEventListener("click", function(event){mouseClicked(event)});
-			
-		}
+		//Declare global variable to be defined in startKeyboardListener function and to be used in end_trial function
+		var keyboardListener;
+		startEventListeners();
 		
-		function mouseClicked(event){
-			
-			console.log("mouseClicked");
-			//Get the x and y coordinates
-			let x = event.pageX;
-			let y = event.pageY;
-			
-			console.log(x - (stimuliCenterX_array[0] - borderRadius));
-			console.log(y - (stimuliCenterY_array[0] + borderRadius));
-			
-			//Go through the stimuli and calculate if it is inside the circle
-			for(let i = 0; i <= nStimuli; i++){
-				//Load in the variables
-				stimuliCenterX = stimuliCenterX_array[i];
-				stimuliCenterY = stimuliCenterY_array[i]; 
-				
-				//Calculate the distance and determine if it is in the circle
-				if(Math.sqrt(Math.pow(stimuliCenterX + lineWidth - x, 2) + Math.pow(stimuliCenterY + lineHeight - y, 2)) <= borderRadius){
-					stimuliChosen = i+1;//+1 so that it starts at 1
-					end_trial();
-				}
-			}
-			
-		}
+		//Timer to end phase1 (stimulus presentation) and start phase2 (get mouse and keyboard response)
+		var timeoutID = setTimeout(startPhase2, stimulusDuration);
 		
 		start();
 		
@@ -298,16 +315,61 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		//-------------------------------------
 
 		//----JsPsych Functions Begin----
+		
+		//Function to start the keyboard listener
+		function startEventListeners(){
+			//Start the response listener if there are choices for keys
+			if (trial.choices != jsPsych.NO_KEYS) {
+				//Create the keyboard listener to listen for subjects' key response
+				keyboardListener = jsPsych.pluginAPI.getKeyboardResponse({
+					callback_function: after_response, //Function to call once the subject presses a valid key
+					valid_responses: trial.choices, //The keys that will be considered a valid response and cause the callback function to be called
+					rt_method: 'performance', //The type of method to record timing information. 'performance' is not yet supported by all browsers, but it is supported by Chrome. Alternative is 'date', but 'performance' is more precise.
+					persist: true, //If set to false, keyboard listener will only trigger the first time a valid key is pressed. If set to true, it has to be explicitly cancelled by the cancelKeyboardResponse plugin API.
+					allow_held_key: false //Only register the key once, after this getKeyboardResponse function is called. (Check JsPsych docs for better info under 'jsPsych.pluginAPI.getKeyboardResponse').
+				});
+			}
+			
+			//Start the mouse response eventlistener
+			canvas.addEventListener("click", function(event){mouseClicked(event)});
+		}
+
+		//Function to record the first response by the subject
+		function after_response(info) {
+			
+			//Only if we are open to responses
+			if(openToResponse){
+				
+				//Kill all keyboard responses
+				jsPsych.pluginAPI.cancelAllKeyboardResponses();
+
+				//If the response has not been recorded, record it
+				if (response.key == -1) {
+					response = info; //Replace the response object created above
+				}
+
+				//If the parameter is set such that the response ends the trial, then kill the timeout and end the trial
+				if (trial.response_ends_trial) {
+					end_trial();
+				}
+				
+			}
+
+		} //End of after_response
 
 		//Function to end the trial proper
 		function end_trial() {
 			
-			console.log(stimuliChosen);
+			//Clear the timeoutID if it is still on
+			window.clearTimeout(timeoutID);
 
 			//Kill the keyboard listener if keyboardListener has been defined
 			if (typeof keyboardListener !== 'undefined') {
 				jsPsych.pluginAPI.cancelKeyboardResponse(keyboardListener);
 			}
+			
+			//Remove the mouse event listener
+			canvas.removeEventListener("click", null);
 
 			//Place all the data to be saved from this trial in one data object
 			var trial_data = { 
@@ -336,6 +398,7 @@ jsPsych.plugins["lines-coherence"] = (function() {
 				"stimuli_chosen": stimuliChosen
 				
 			}
+			console.log("correctOrNot: " + trial_data.correct);
 			
 			//Remove the canvas as the child of the display_element element
 			display_element.innerHTML='';
@@ -345,6 +408,7 @@ jsPsych.plugins["lines-coherence"] = (function() {
 			body.style.padding = originalPadding;
 			body.style.backgroundColor = originalBackgroundColor
 			document.getElementById('jspsych-content').style.maxWidth = "95%";
+			//document.getElementById('jspsych-loading-progress-bar-container').style.height = "10px";//The progress bar disappears after the trial
 
 			//End this trial and move on to the next trial
 			jsPsych.finishTrial(trial_data);
@@ -353,15 +417,37 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		
 		//Function that determines if the response is correct
 		function correctOrNot(){
-						
+			
+			//Get the index of the max coherence
+			let maxIndex;
+			let maxCoherence = 0;
+			for(let i = 0; i < coherence_array.length; i++){
+				if(coherence_array[i] > maxCoherence){
+					maxIndex = i;
+					maxCoherence = coherence_array[i];
+				}
+			}
+			
+			//Compare the stimuli chosen with the index to get the correct answer
+			if(maxIndex + 1 === stimuliChosen){
+				return true;
+			}
+			else{
+				return false;
+			}
+			
+		/*	
+		Delete if unnecessary			
 			//Check that the correct_choice has been defined
 			if(typeof trial.correct_choice !== 'undefined'){
 				//If the correct_choice variable holds an array
-				if(trial.correct_choice.constructor === Array){ //If it is an array
+				if(trial.correct_choice.constructor === Array){
 					//If the elements are characters
 					if(typeof trial.correct_choice[0] === 'string' || trial.correct_choice[0] instanceof String){
-						trial.correct_choice = trial.correct_choice.map(function(x){return x.toUpperCase();}); //Convert all the values to upper case
-						return trial.correct_choice.includes(String.fromCharCode(response.key)); //If the response is included in the correct_choice array, return true. Else, return false.
+						//Convert all the values to upper case
+						trial.correct_choice = trial.correct_choice.map(function(x){return x.toUpperCase();}); 
+						//If the response is included in the correct_choice array, return true. Else, return false.
+						return trial.correct_choice.includes(String.fromCharCode(response.key)); 
 					}
 					//Else if the elements are numbers (javascript character codes)
 					else if (typeof trial.correct_choice[0] === 'number'){
@@ -382,6 +468,7 @@ jsPsych.plugins["lines-coherence"] = (function() {
 					}
 				}
 			}
+			*/
 		}
 
 		//----JsPsych Functions End----
@@ -539,7 +626,7 @@ jsPsych.plugins["lines-coherence"] = (function() {
 	          	ctx.lineWidth = borderThickness;
 	          	ctx.strokeStyle = borderColor;
 	          	ctx.beginPath();
-	          	ctx.ellipse(stimuliCenterX, stimuliCenterY + lineHeight/2, borderRadius, borderRadius, 0, 0, Math.PI*2);//+lineHeight/2 because otherwise it is not centered
+	          	ctx.ellipse(stimuliCenterX, stimuliCenterY, borderRadius, borderRadius, 0, 0, Math.PI*2);
 	          	ctx.stroke();
 		    }
 		    
@@ -564,29 +651,65 @@ jsPsych.plugins["lines-coherence"] = (function() {
 				//function from: http://stackoverflow.com/questions/17125632/html5-canvas-rotate-object-without-moving-coordinates
 				//Originally implemented by Brian Odegaard    
 			
-			    //First save the untranslated/unrotated context
-			    ctx.save();
 			    ctx.beginPath();
+			    
 			    //Move the rotation point to the center of the line
 			    ctx.translate(line.x + lineWidth/2, line.y + lineWidth/2);
+			    
 			    //Rotate the canvas/context
 			    ctx.rotate(line.angle*(Math.PI/180));
 
 			    //Draw the line on the transformed context
-			    //Note: after transforming [0,0] is visually [x,y], 
+			    //Note: after transforming [0,0] is visually [midrect-x,midrect-y], 
 			    //so the rect needs to be offset accordingly when drawn
 			    ctx.rect(-clearingLineWidth/2, -clearingLineHeight/2, clearingLineWidth, clearingLineHeight);
 			    
 			    //Fill in the line
 			    ctx.fillStyle = color;
 			    ctx.fill();
-
-			    //Restore the context to its untranslated/unrotated state
-			    ctx.restore();
+			    
+			    //Rotate the canvas/context back
+			    ctx.rotate(-line.angle*(Math.PI/180));
+			    
+			    //Move the rotation point back
+			    ctx.translate(-(line.x + lineWidth/2), -(line.y + lineWidth/2));
 		    
 		    }//End of for i loop
 		    
 		}//End of drawLines
+		
+		//Function to start the next phase
+		function startPhase2(){
+			
+			//Clear the rectangle
+		    loopThroughStimuli(drawLines, backgroundColor);
+			
+			//Open the trial to take in participant's response
+			openToResponse = true;
+		}
+		
+		//Function to handle the click event
+		function mouseClicked(event){
+			
+			if(openToResponse){
+				//Get the x and y coordinates
+				let x = event.pageX;
+				let y = event.pageY;
+				
+				//Go through the stimuli and calculate if it is inside the circle
+				for(let i = 0; i <= nStimuli; i++){
+					//Load in the variables
+					stimuliCenterX = stimuliCenterX_array[i];
+					stimuliCenterY = stimuliCenterY_array[i]; 
+					
+					//Calculate the distance and determine if it is in the circle
+					if(Math.sqrt(Math.pow(stimuliCenterX - x, 2) + Math.pow(stimuliCenterY - y, 2)) <= borderRadius){
+						stimuliChosen = i+1;//+1 so that it starts at 1
+						end_trial();
+					}
+				}
+			}
+		}//End of mouseClicked function
 
 		// Function to shuffle array
 		function shuffleArray(array) {

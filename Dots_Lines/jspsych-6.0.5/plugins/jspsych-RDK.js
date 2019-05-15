@@ -56,6 +56,12 @@ jsPsych.plugins["RDK"] = (function() {
 		      default: 500,
 		      description: "The length of stimulus presentation"
 		    },
+		    stimulus_duration: {
+		      type: jsPsych.plugins.parameterType.INT,
+		      pretty_name: "Stimulus duration",
+		      default: 500,
+		      description: "The length of stimulus presentation"
+		    },
 		    response_ends_trial: {
 		      type: jsPsych.plugins.parameterType.BOOL,
 		      pretty_name: "Response ends trial",
@@ -234,6 +240,7 @@ jsPsych.plugins["RDK"] = (function() {
 		trial.choices = assignParameterValue(trial.choices, []);
 		trial.correct_choice = assignParameterValue(trial.correct_choice, undefined);
 		trial.trial_duration = assignParameterValue(trial.trial_duration, 500);
+		trial.stimulus_duration = assignParameterValue(trial.stimulus_duration, 500);
 		trial.response_ends_trial = assignParameterValue(trial.response_ends_trial, true);
 		trial.number_of_apertures = assignParameterValue(trial.number_of_apertures, 1);
 		trial.number_of_dots = assignParameterValue(trial.number_of_dots, 300);
@@ -342,6 +349,8 @@ jsPsych.plugins["RDK"] = (function() {
 		var border = trial.border; //To display or not to display the border
 		var borderThickness = trial.border_thickness; //The width of the border in pixels
 		var borderColor = trial.border_color; //The color of the border
+		
+		var stimulusDuration = trial.stimulus_duration;
 
 
 
@@ -368,6 +377,12 @@ jsPsych.plugins["RDK"] = (function() {
 		body.style.margin = 0;
 		body.style.padding = 0;
 		body.style.backgroundColor = backgroundColor; //Match the background of the display element to the background color of the canvas so that the removal of the canvas at the end of the trial is not noticed
+		
+		document.getElementById('jspsych-content').style.maxWidth = "100%";
+		let progressBarElement = document.getElementById('jspsych-loading-progress-bar-container');
+		if(progressBarElement !== null){
+			progressBarElement.style.height = "0px";
+		}
 
 		//Remove the margins and padding of the canvas
 		canvas.style.margin = 0;
@@ -455,12 +470,17 @@ jsPsych.plugins["RDK"] = (function() {
 		
 		//Declare global variable to be defined in startKeyboardListener function and to be used in end_trial function
 		var keyboardListener; 
+		//Start the mouse response eventlistener
+		canvas.addEventListener("click", function(event){mouseClicked(event)});
 		
 		//Declare global variable to store the frame rate of the trial
 		var frameRate = []; //How often the monitor refreshes, in ms. Currently an array to store all the intervals. Will be converted into a single number (the average) in end_trial function.
 		
 		//variable to store how many frames were presented.
 		var numberOfFrames = 0;
+		
+		//Timer to end phase1 (stimulus presentation) and start phase2 (get mouse and keyboard response)
+		var timeoutID = setTimeout(startPhase2, stimulusDuration);
 
 		//This runs the dot motion simulation, updating it according to the frame refresh rate of the screen.
 		animateDotMotion();
@@ -473,6 +493,57 @@ jsPsych.plugins["RDK"] = (function() {
 		//-------------------------------------
 		//-----------FUNCTIONS BEGIN-----------
 		//-------------------------------------
+		
+		// New functions for the modified RDK
+		
+		//Function to start phase 2
+		function startPhase2(){
+			
+			//Stop the dot motion
+			stopDotMotion = true;
+			
+			
+			// Clear all the current dots
+			for(currentApertureNumber = 0; currentApertureNumber < nApertures; currentApertureNumber++){
+        
+				//Initialize the variables for each parameter
+				initializeCurrentApertureParameters(currentApertureNumber);
+				
+		        //Clear the canvas by drawing over the current dots
+		        clearDots();
+        
+      		}
+			
+			//Draw the border
+			drawBorder();
+			
+			//Open the trial to take in participant's response
+			openToResponse = true;
+		}
+		
+		//Function to handle the click event
+		function mouseClicked(event){
+			
+			if(openToResponse){
+				//Get the x and y coordinates
+				let x = event.pageX;
+				let y = event.pageY;
+				
+				//Go through the stimuli and calculate if it is inside the circle
+				for(let i = 0; i <= nApertures; i++){
+					//Load in the variables
+					stimuliCenterX = apertureCenterXArray[i];
+					stimuliCenterY = apertureCenterYArray[i]; 
+					
+					//Calculate the distance and determine if it is in the circle
+					if(Math.sqrt(Math.pow(stimuliCenterX - x, 2) + Math.pow(stimuliCenterY - y, 2)) <= apertureWidth/2){
+						stimuliChosen = i+1;//+1 so that it starts at 1
+						console.log("stimuliChosen: " + stimuliChosen);
+						end_trial();
+					}
+				}
+			}
+		}//End of mouseClicked function
 
 		//----JsPsych Functions Begin----
 		
@@ -555,7 +626,8 @@ jsPsych.plugins["RDK"] = (function() {
 				"border_thickness": trial.border_thickness,
 				"border_color": trial.border_color,
 				"canvas_width": canvasWidth,
-				"canvas_height": canvasHeight
+				"canvas_height": canvasHeight,
+				"stimuliChosen": stimuliChosen
 				
 			}
 			
@@ -566,6 +638,8 @@ jsPsych.plugins["RDK"] = (function() {
 			body.style.margin = originalMargin;
 			body.style.padding = originalPadding;
 			body.style.backgroundColor = originalBackgroundColor
+			document.getElementById('jspsych-content').style.maxWidth = "95%";
+			//document.getElementById('jspsych-loading-progress-bar-container').style.height = "10px";//The progress bar disappears after the trial
 
 			//End this trial and move on to the next trial
 			jsPsych.finishTrial(trial_data);
@@ -590,15 +664,37 @@ jsPsych.plugins["RDK"] = (function() {
 		
 		//Function that determines if the response is correct
 		function correctOrNot(){
-						
+			
+			//Get the index of the max coherence
+			let maxIndex;
+			let maxCoherence = 0;
+			for(let i = 0; i < coherenceArray.length; i++){
+				if(coherenceArray[i] > maxCoherence){
+					maxIndex = i;
+					maxCoherence = coherenceArray[i];
+				}
+			}
+			
+			//Compare the stimuli chosen with the index to get the correct answer
+			if(maxIndex + 1 === stimuliChosen){
+				return true;
+			}
+			else{
+				return false;
+			}
+			
+		/*	
+		Delete if unnecessary			
 			//Check that the correct_choice has been defined
 			if(typeof trial.correct_choice !== 'undefined'){
 				//If the correct_choice variable holds an array
-				if(trial.correct_choice.constructor === Array){ //If it is an array
+				if(trial.correct_choice.constructor === Array){
 					//If the elements are characters
 					if(typeof trial.correct_choice[0] === 'string' || trial.correct_choice[0] instanceof String){
-						trial.correct_choice = trial.correct_choice.map(function(x){return x.toUpperCase();}); //Convert all the values to upper case
-						return trial.correct_choice.includes(String.fromCharCode(response.key)); //If the response is included in the correct_choice array, return true. Else, return false.
+						//Convert all the values to upper case
+						trial.correct_choice = trial.correct_choice.map(function(x){return x.toUpperCase();}); 
+						//If the response is included in the correct_choice array, return true. Else, return false.
+						return trial.correct_choice.includes(String.fromCharCode(response.key)); 
 					}
 					//Else if the elements are numbers (javascript character codes)
 					else if (typeof trial.correct_choice[0] === 'number'){
@@ -619,6 +715,7 @@ jsPsych.plugins["RDK"] = (function() {
 					}
 				}
 			}
+			*/
 		}
 
 		//----JsPsych Functions End----
@@ -867,7 +964,7 @@ jsPsych.plugins["RDK"] = (function() {
 		//Function to update all the dots all the apertures and then draw them
 		function updateAndDraw(){
       
-      //Three for loops that do things in sequence: clear, update, and draw dots.
+      		//Three for loops that do things in sequence: clear, update, and draw dots.
 			
 			// Clear all the current dots
 			for(currentApertureNumber = 0; currentApertureNumber < nApertures; currentApertureNumber++){
@@ -875,10 +972,10 @@ jsPsych.plugins["RDK"] = (function() {
 				//Initialize the variables for each parameter
 				initializeCurrentApertureParameters(currentApertureNumber);
 				
-        //Clear the canvas by drawing over the current dots
-        clearDots();
+		        //Clear the canvas by drawing over the current dots
+		        clearDots();
         
-      }
+      		}
 			
 			// Update all the relevant dots
 			for(currentApertureNumber = 0; currentApertureNumber < nApertures; currentApertureNumber++){
@@ -889,7 +986,7 @@ jsPsych.plugins["RDK"] = (function() {
 				//Update the dots
 				updateDots();
         
-      }
+      		}
 			
 			// Draw all the relevant dots on the canvas
 			for(currentApertureNumber = 0; currentApertureNumber < nApertures; currentApertureNumber++){
@@ -905,24 +1002,24 @@ jsPsych.plugins["RDK"] = (function() {
 		//Function that clears the dots on the canvas by drawing over it with the color of the baclground
 	    function clearDots(){
       
-      //Load in the current set of dot array for easy handling
-      var dotArray = dotArray2d[currentSetArray[currentApertureNumber]];
-	      
-	      //Loop through the dots one by one and draw them
-				for (var i = 0; i < nDots; i++) {
-					dot = dotArray[i];
-					ctx.beginPath();
-					ctx.arc(dot.x, dot.y, dotRadius+1, 0, Math.PI * 2);
-					ctx.fillStyle = backgroundColor;
-					ctx.fill();
-				}
+		    //Load in the current set of dot array for easy handling
+		    var dotArray = dotArray2d[currentSetArray[currentApertureNumber]];
+	  	  
+	    	//Loop through the dots one by one and draw them
+			for (var i = 0; i < nDots; i++) {
+				dot = dotArray[i];
+				ctx.beginPath();
+				ctx.arc(dot.x, dot.y, dotRadius+1, 0, Math.PI * 2);
+				ctx.fillStyle = backgroundColor;
+				ctx.fill();
+			}
 	    }
 
 		//Draw the dots on the canvas after they're updated
 		function draw() {
       
-      //Load in the current set of dot array for easy handling
-      var dotArray = dotArray2d[currentSetArray[currentApertureNumber]];
+	      	//Load in the current set of dot array for easy handling
+	      	var dotArray = dotArray2d[currentSetArray[currentApertureNumber]];
       
 			//Loop through the dots one by one and draw them
 			for (var i = 0; i < nDots; i++) {
@@ -955,26 +1052,31 @@ jsPsych.plugins["RDK"] = (function() {
       
 	      	//Draw the border if we want it
 	      	if(border === true){
-	        
-	        	//For circle and ellipse
-	        	if(apertureType === 1 || apertureType === 2){
-	          		ctx.lineWidth = borderThickness;
-	          		ctx.strokeStyle = borderColor;
-	          		ctx.beginPath();
-	          		ctx.ellipse(apertureCenterX, apertureCenterY, horizontalAxis+(borderThickness/2), verticalAxis+(borderThickness/2), 0, 0, Math.PI*2);
-	          		ctx.stroke();
-	        	}//End of if circle or ellipse
-	        
-	        	//For square and rectangle
-	        	if(apertureType === 3 || apertureType === 4){
-	          		ctx.lineWidth = borderThickness;
-	          		ctx.strokeStyle = borderColor;
-	          		ctx.strokeRect(apertureCenterX-horizontalAxis-(borderThickness/2), apertureCenterY-verticalAxis-(borderThickness/2), (horizontalAxis*2)+borderThickness, (verticalAxis*2)+borderThickness);
-	        	}//End of if square or 
-        
+        		drawBorder();
       		}//End of if border === true
 	        
 		}//End of draw
+		
+		//Function to draw the border
+		function drawBorder(){
+	        
+	        //For circle and ellipse
+	        if(apertureType === 1 || apertureType === 2){
+	        	ctx.lineWidth = borderThickness;
+	        	ctx.strokeStyle = borderColor;
+	        	ctx.beginPath();
+	        	ctx.ellipse(apertureCenterX, apertureCenterY, horizontalAxis+(borderThickness/2 + 2), verticalAxis+(borderThickness/2) + 2, 0, 0, Math.PI*2);
+	        	ctx.stroke();
+	        }//End of if circle or ellipse
+	        
+	        //For square and rectangle
+	        if(apertureType === 3 || apertureType === 4){
+	        	ctx.lineWidth = borderThickness;
+	        	ctx.strokeStyle = borderColor;
+	        	ctx.strokeRect(apertureCenterX-horizontalAxis-(borderThickness/2), apertureCenterY-verticalAxis-(borderThickness/2), (horizontalAxis*2)+borderThickness, (verticalAxis*2)+borderThickness);
+	        }//End of if square or 
+			
+		}
 
 		//Update the dots with their new location
 		function updateDots() {

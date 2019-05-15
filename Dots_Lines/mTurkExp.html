@@ -5,12 +5,14 @@
        Most of the functions below are written by Jason Carpenter.
        GitHub: https://github.com/jmcarpenter2
     -->
-    <title>mTurk Short Survey</title>
+    <title>Experiment</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script src="jspsych-6.0.5/jspsych.js"></script>
     <link href="jspsych-6.0.5/css/jspsych.css" rel="stylesheet" type="text/css"></link>
     <!--Your jsPsych plugins below this line-->
     
+	<script src="jspsych-6.0.5/plugins/jspsych-instructions.js"></script>
+	<script src="jspsych-6.0.5/plugins/jspsych-fullscreen.js"></script>
     <script src="jspsych-6.0.5/plugins/jspsych-lines-coherence.js"></script>
     <script src="jspsych-6.0.5/plugins/jspsych-RDK.js"></script>
     
@@ -21,255 +23,369 @@
 </head>
 <body>
 </body>
-<script>
+<script>//Data switches
+
+	var saveLocally = 0;  // 0: Nothing.      1: Download CSV file
+	var displayData = 1;  // 0: Nothing.      1: Display data on browser
+	var launchOnline = 0; // 0: Nothing.	  1: Save to database, consent form, completion code generation, dummy variables created for all 3 IDs
+	var tableName = 'sample_exp_no_psiturk'; //Name of the table in the database
+
+
+	//Get the info from mTurk
+	var turkInfo = jsPsych.turk.turkInfo();
+	console.log(turkInfo);
+
+	//If we're not on mTurk, we create our own values
+	if (turkInfo.outsideTurk === true) {
+
+	    // Use the timestamp as a unique id (specific to the second)
+	    var timestamp = Math.floor(Date.now() / 1000);
+
+	    workerId = "workerId_" + timestamp;
+	    assignmentId = "assignmentId_" + timestamp;
+	    hitId = "hitId_" + timestamp;
+
+	}
+	//Else we're on mTurk and we get the values
+	else {
+
+	    var workerId = turkInfo.workerId;
+	    var assignmentId = turkInfo.assignmentId;
+	    var hitId = turkInfo.hitId;
+
+	}
+
+	//Print out to console to check
+	console.log("workerId: " + workerId);
+	console.log("assignmentId: " + assignmentId);
+	console.log("hitId: " + hitId);
+
+
+	//------------------- Your code below this line -------------------
+	
+	//--------------------
+	//-----Parameters-----
+	//--------------------
+	
+	//General Timing
+	let presentation_duration_rdk = 2000;
+	let presentation_duration_lines = 2000;
+	
+	//General drawing
+	let borderRadius = 400; 
+	let distanceFromCenter = 450; //Distance of left and right stimuli from center
+	let stimuliCenterX = [window.innerWidth / 2 - distanceFromCenter, window.innerWidth / 2, window.innerWidth / 2 + distanceFromCenter];
+	
+	//General RDK
+	let nDots = 100;
+	let dotLife = 20;
+	
+	//Example parameters
+	eg_coherence = [0.1, 0.4, 0.8];
+
+	var sampleLines = {
+	    type: 'lines-coherence',
+	    coherence: [0.2, 0.6, 0.4],
+	    lines_per_row_array: [1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1],
+	    stimuli_center_x: stimuliCenterX,
+	    angle_buffer: 10,
+	    line_height: 20,
+	    choices: jsPsych.NO_KEYS,
+	    number_of_stimuli: 3,
+	    background_color: "white",
+	    border_radius: borderRadius/2,
+	    response_during_stimulus: false,
+	    stimulus_duration: presentation_duration_lines
+	};
+
+	var sampleRDK = {
+	    type: 'RDK',
+	    coherence: [0.2, 0.6, 0.4],
+	    number_of_dots: nDots,
+	    dot_life: dotLife,
+	    border: true,
+	    number_of_apertures: 3,
+	    aperture_center_x: stimuliCenterX,
+	    coherent_direction: 270,
+	    aperture_height: borderRadius,
+	    aperture_width: borderRadius,
+	    trial_duration: -1,
+	    background_color: "white",
+	    dot_color: "black",
+	    stimulus_duration: presentation_duration_rdk
+	};
+
+
+
+	var timeline = [];
+	//timeline.push(fullscreen());
+	//timeline.push(sampleLines);
+	//timeline.push(sampleRDK);
+	//timeline.push(instructions_eg1());
+	timeline.push(example_1());
+	//timeline.push(instructions_eg2());
+	timeline.push(example_2());
+
+
+
+	//------------------- Your code above this line -------------------
+
+	if (launchOnline) {
+	    timeline.unshift(createConsentFormBlock())
+	    timeline.push(createCompletionCodeBlock());
+	    timeline.push(createGoodbyeBlock());
+	}
+
+	//Initiate the experiment
+	jsPsych.init({
+	    timeline: timeline,
+	    on_finish: function() { //Execute this when the experiment finishes
+	        if (saveLocally == true) {
+	            jsPsych.data.get().localSave('csv', 'testSave.csv'); //Save the data locally in a .csv file
+	        }
+	        if (displayData == true) {
+	            jsPsych.data.displayData(); //Display the data onto the browser screen
+	        }
+	    },
+	    on_trial_finish: function() { //Execute this after every trial
+	        if (launchOnline == true) {
+	            save_data(tableName, [jsPsych.data.get().last(1).values()[0]]);
+	        }
+	    }
+	});
+
+
+	//==============================
+	//========= FUNCTIONS ==========
+	//==============================
+
+
+
+	function fullscreen() {
+	    return {
+	        type: 'fullscreen',
+	        fullscreen_mode: true,
+	        message: '<p> Welcome to the experiment!</p><p>This experiment requires that your browser be in fullscreen mode. When you click "Next" below, your browser will be put to fullscreen mode automatically.</p>',
+	        button_label: 'Next >'
+	    };
+	}
+        
+        
+    function instructions_eg1(){
+        return {
+            type: 'instructions',
+            pages: [
+            '<p> Thank you for agreeing to participate in our experiment! </p><p>Before we give you the instructions, we would like to reiterate from the consent form that:</p><p>(1) You will be compensated $4 for the completion of the study<br>(2) The study will last a little under one hour<br>(3) We reserve the right to terminate your session at any time<br>(4) If we terminate your session, you will be paid for the total amount of time you participated at a rate of $4/hour, up to one hour total.</p><p> Click "Next" below if you understand and agree to these terms. </p>',
+            '<p> It is imperative for you to understand the task in order for this experiment to work. As such, we will be monitoring how well you do the task. If your performance indicates that you do not understand the task or are not paying attention, we will terminate the experiment.</p><p> If we terminate the experiment, you should <b>not</b> submit the assignment. <span style="color:red"><i>We will reject the assignment if you submit the assignment after termination.</i></span> Instead, you will be given more instructions on how to receive compensation from us. We will then compensate you manually through mTurk.</p>',
+            '<p> In this experiment, you will be shown dots moving on the screen or lines arranged in different angles (called "stimuli"). There will be 3 sets of these stimuli, each one will be in a circle on the screen. Your job is to decide which circle contains the most coherent dots or lines. We will explain what coherence means in the next instructions.</p>',
+            '<p> For stimuli that are dots, the dots will be moving on the screen randomly. However, some of the dots will move coherently downwards (like a waterfall). This downward motion will occur in all 3 circles.</p> <p>Your job is to judge which circle has the most downward moving dots.</p>',
+            '<p> When you click "Next" below, you will be shown an example of a trial.</p><p>After a few seconds of stimulus presentation, the dots will disappear. You can then click on the circle which you think has the most downward-moving dots. </p><p>Remember to click on the circle which has the most downward-moving dots once the dots disappear.</p>'
+            ],
+            show_clickable_nav: true,
+            data: {trialType: 'instructions_eg1'}
+
+        };
+    }
     
-        //Data switches
-        var saveLocally = 0;	// 0: Nothing.      1: Download CSV file
-        var displayData = 1;  	// 0: Nothing.      1: Display data on browser
-        var launchOnline = 0;	// 0: Nothing.		1: Save to database, consent form, completion code generation, dummy variables created for all 3 IDs
-        var tableName = 'sample_exp_no_psiturk'; //Name of the table in the database
+    function example_1(){
+    	//Make a copy of the object
+    	let tempTrial = Object.assign(sampleRDK,{});
+    	
+    	//Change the values for the example
+    	tempTrial.coherence = eg_coherence;
+    	
+    	return tempTrial;
+    }
         
         
-        //Get the info from mTurk
-        var turkInfo = jsPsych.turk.turkInfo();
-        console.log(turkInfo);
-        
-        //If we're not on mTurk, we create our own values
-        if(turkInfo.outsideTurk === true){
-            
-            // Use the timestamp as a unique id (specific to the second)
-            var timestamp = Math.floor(Date.now()/1000);
-            
-            workerId = "workerId_" + timestamp;
-            assignmentId = "assignmentId_" + timestamp;
-            hitId = "hitId_" + timestamp;
-            
-        }
-        //Else we're on mTurk and we get the values
-        else{
-          
-            var workerId = turkInfo.workerId;
-            var assignmentId = turkInfo.assignmentId;
-            var hitId = turkInfo.hitId;
-        
-        }
-        
-        //Print out to console to check
-        console.log("workerId: " + workerId);
-        console.log("assignmentId: " + assignmentId);
-        console.log("hitId: " + hitId);
-        
-        
-        //------------------- Your code below this line -------------------
-        
-        let distanceFromCenter = 200;//Distance of left and right stimuli from center
-        
-        var linesCoherence = {
-            type: 'lines-coherence',
-            number_of_stimuli: 3,
-            stimuli_center_x: [window.innerWidth/2 - distanceFromCenter, window.innerWidth/2, window.innerWidth/2 + distanceFromCenter],
-            angle_buffer: 10,
-            line_height: 20,
-            trial_choices: jsPsych.NO_KEYS,
-            coherence: 0,
-            background_color:"gray"
-            
+    function instructions_eg2(){
+        return {
+            type: 'instructions',
+            pages: [
+            '<p> Hopefully you managed to see that the circle on the right side had the most downward-moving dots. If you clicked on that circle, you got that example trial correct. If you did not click that circle, it is okay, you will be given some practice trials later to familiarize yourself with the task.</p>',
+            '<p> The other kind of stimuli are lines. You will see 3 circles on the screen, just like in the previous example. However, instead of dots, you will see lines in the circles. The lines will be stationary, but will be positioned at different angles. Some of them will be vertical, but others will be random.</p> Your job is to choose the circle which has the most number of vertical lines.<p></p>',
+            '<p> When you click "Next" below, you will be shown an example of a trial.</p><p>After a few seconds of stimulus presentation, the lines will disappear. You can then click on the circle which you think had the most vertical lines. </p><p>Remember to click on the circle which has the most vertical lines once the lines disappear.</p>'
+            ],
+            show_clickable_nav: true,
+            data: {trialType: 'instructions_eg2'}
         };
+    }
+    
+    function example_2(){
+    	//Make a copy of the object
+    	let tempTrial = Object.assign(sampleLines,{});
+    	
+    	//Change the values for the example
+    	tempTrial.coherence = eg_coherence;
+    	
+    	return tempTrial;
+    }
         
-        var sampleRDK = {
-            type: 'RDK'
+        
+    function instructions_eg3(){
+        return {
+            type: 'instructions',
+            pages: [
+            '<p> Good work!</p> <p>After you click on the circle in which you think has the most downward-moving dots or vertical lines, a slider will pop up and you will be asked to indicate your confidence.</p><p> Use the slider to indicate your confidence. If you are certain that your choice is correct, then drag the slider all the way up. If you are completely guessing, then drag the slider all the way down. If you think that there is a 75% chance that you are correct, then drag it halfway up.</p><p> There will be labels on the slider to guide you</p>',
+            '<p> </p>',
+            '<p> </p>'
+            ],
+            show_clickable_nav: true,
+            data: {trialType: 'instructions_eg3'}
         };
+    }
         
-        
-        
-        var timeline = []; //Keep this
-        timeline.push(linesCoherence); //Replace this with your experiment blocks
-        timeline.push(sampleRDK); //Replace this with your experiment blocks
-        
-        
-        
-        //------------------- Your code above this line -------------------
-        
-        if(launchOnline){
-        	timeline.unshift(createConsentFormBlock())
-	        timeline.push(createCompletionCodeBlock());
-	        timeline.push(createGoodbyeBlock());
-    	}
 
-        //Initiate the experiment
-        jsPsych.init({
-            timeline: timeline,
-            on_finish: function(){ //Execute this when the experiment finishes
-                if(saveLocally == true){
-                    jsPsych.data.get().localSave('csv','testSave.csv'); //Save the data locally in a .csv file
-                }
-                if(displayData == true){
-                    jsPsych.data.displayData(); //Display the data onto the browser screen
-                }
+	//-------- Trial-Making --------
+
+	//Creates a consent form trial and returns it
+	function createConsentFormBlock() {
+
+	    return {
+	        type: 'external-html',
+	        url: "consentForm.html",
+	        cont_btn: "startExperimentButton",
+	        check_fn: check_consent
+	    };
+	}
+
+	//Create trial to generate completion code, and check if they've earned a bonus on this session
+	function createCompletionCodeBlock() {
+
+	    return {
+	        type: 'html-keyboard-response',
+	        stimulus: '<center><p class="loader" style="margin-top: 20%">Loading...</p></center>',
+	        timing_response: 1,
+	        trial_duration: 10,
+	        //display_element: $('#vert-center'),
+	        on_finish: function() {
+	            // Create completionCode and check if it exists in the database. Keep running until a unique one is generated
+	            completionCode = Math.floor(Math.random() * 9000000 + 1000000);
+	            checkID(false, completionCode, 'completion_code', tableName, function(exists) {
+	                getNewSubID(exists);
+	            });
+	        },
+	        timing_post_trial: 0
+	    };
+	}
+
+	//Create trial to thank the participate, tell them about their bonus, and display their completionCode completion code
+	function createGoodbyeBlock() {
+
+	    return {
+	        type: 'html-button-response',
+	        stimulus: function() {
+	            var output = '<p class="instructions">Thank you for participating!</p>';
+	            var data = jsPsych.data.get().last(1).values()[0];
+	            var completionCode = data.completion_code;
+
+	            // Display completionCode completion code
+	            output += '<p class="instructions"> Your survey code is: <strong>' + completionCode + '</strong></p>' +
+	                '<p class="instructions">Please paste this number back into the box at the mTurk HIT website.</p>' +
+	                '<p class="instructions"><i>Do <b>NOT</b> close this window until you have submitted the above code.</i></p>';
+
+	            return output;
+	        },
+	        choices: ['I have submitted the code. Exit the experiment.'],
+	        timing_post_trial: 0
+	    };
+	}
+        
+    //-------- Functionality --------
+    
+    // Function to draw parameters from the URL
+    function $_GET(param) 
+    {
+        var vars = {};
+        window.location.href.replace( 
+            /[?&]+([^=&]+)=?([^&]*)?/gi, // regexp
+            function( m, key, value ) { // callback
+                vars[key] = value !== undefined ? value : '';
+            }
+        );
+
+        if ( param ) 
+        {
+            console.log(vars);
+            console.log(param);
+            return vars[param] ? vars[param] : null;    
+        }
+        return vars;
+    }
+    
+    // Function to check compare the inputted ID to all IDs of the IDType in the SQL database
+    function checkID(async, ID, IDType, data_table, callback)
+    {
+        $.ajax({
+            type:'post',
+            cache: false,
+            async: async,
+            url: 'checkSubID.php',
+            data: // Inputs into the .php script
+            {
+                ID: ID,
+                IDType: IDType,
+                completeTrials: 3450,
+                data_table: data_table
             },
-            on_trial_finish: function(){ //Execute this after every trial
-                if (launchOnline == true){
-                    save_data(tableName, [jsPsych.data.get().last(1).values()[0]]);
-                }
-            }
-        });
-        
-        
-        //==============================
-        //========= FUNCTIONS ==========
-        //==============================
-        
-        
-        //-------- Trial-Making --------
-        
-        //Creates a consent form trial and returns it
-        function createConsentFormBlock(){
-
-	        return {
-	          type:'external-html',
-	          url: "consentForm.html",
-	          cont_btn: "startExperimentButton",
-	          check_fn: check_consent
-	        };
-        }
-        
-        //Create trial to generate completion code, and check if they've earned a bonus on this session
-        function createCompletionCodeBlock(){
-        	
-	        return {
-	            type: 'html-keyboard-response',
-	            stimulus: '<center><p class="loader" style="margin-top: 20%">Loading...</p></center>',
-	            timing_response: 1,
-	            trial_duration: 10,
-	            //display_element: $('#vert-center'),
-	            on_finish: function()
-	            {
-	                // Create completionCode and check if it exists in the database. Keep running until a unique one is generated
-	                completionCode = Math.floor(Math.random() * 9000000 + 1000000); 
-	                checkID(false, completionCode, 'completion_code', tableName, function(exists){getNewSubID(exists);}); 
-	            },
-	            timing_post_trial: 0
-	        };
-        }
-        
-        //Create trial to thank the participate, tell them about their bonus, and display their completionCode completion code
-        function createGoodbyeBlock(){
-        	
-	        return {
-	            type: 'html-button-response',
-	            stimulus: function()
-	            {
-	                var output = '<p class="instructions">Thank you for participating!</p>';
-	                var data = jsPsych.data.get().last(1).values()[0];
-	                var completionCode = data.completion_code;
-	                    
-	                // Display completionCode completion code
-	                output += '<p class="instructions"> Your survey code is: <strong>'+ completionCode + '</strong></p>' +
-	                    '<p class="instructions">Please paste this number back into the box at the mTurk HIT website.</p>' +
-	                    '<p class="instructions"><i>Do <b>NOT</b> close this window until you have submitted the above code.</i></p>';
-	                
-	                return output;
-	            },
-	            choices: ['I have submitted the code. Exit the experiment.'],
-	            timing_post_trial: 0
-	        };
-        }
-        
-        //-------- Functionality --------
-        
-        // Function to draw parameters from the URL
-        function $_GET(param) 
-        {
-            var vars = {};
-            window.location.href.replace( 
-                /[?&]+([^=&]+)=?([^&]*)?/gi, // regexp
-                function( m, key, value ) { // callback
-                    vars[key] = value !== undefined ? value : '';
-                }
-            );
-
-            if ( param ) 
+            success: function(exists)  // Use whatever callback function is specified when calling the checkID function
             {
-                console.log(vars);
-                console.log(param);
-                return vars[param] ? vars[param] : null;    
-            }
-            return vars;
-        }
-        
-        // Function to check compare the inputted ID to all IDs of the IDType in the SQL database
-        function checkID(async, ID, IDType, data_table, callback)
-        {
-            $.ajax({
-                type:'post',
-                cache: false,
-                async: async,
-                url: 'checkSubID.php',
-                data: // Inputs into the .php script
-                {
-                    ID: ID,
-                    IDType: IDType,
-                    completeTrials: 3450,
-                    data_table: data_table
-                },
-                success: function(exists)  // Use whatever callback function is specified when calling the checkID function
-                {
-                    callback(exists);
-                },
-                error: function (xhr, ajaxOptions, thrownError) 
-                {
-                   alert(thrownError);
-               }
-           });
-        }
-        
-        // Callback function for checking if the completionCode exists
-        function getNewSubID(exists)
-        {
-            if (exists === '1' || exists === 1) // If the completionCode exists in the SQL database
+                callback(exists);
+            },
+            error: function (xhr, ajaxOptions, thrownError) 
             {
-                completionCode = Math.floor(Math.random() * 9000000 + 1000000); // Generate new completionCode
-                checkID(false, completionCode, 'completion_code', tableName, function(existsNow){getNewSubID(existsNow);}); // Check if the new completionCode exists in the database
-            }
-            else // If the completionCode doesn't exist in the SQL database
-                jsPsych.data.addProperties({completion_code: completionCode}); // Add the completionCode to the data 
+               alert(thrownError);
+           }
+       });
+    }
+    
+    // Callback function for checking if the completionCode exists
+    function getNewSubID(exists)
+    {
+        if (exists === '1' || exists === 1) // If the completionCode exists in the SQL database
+        {
+            completionCode = Math.floor(Math.random() * 9000000 + 1000000); // Generate new completionCode
+            checkID(false, completionCode, 'completion_code', tableName, function(existsNow){getNewSubID(existsNow);}); // Check if the new completionCode exists in the database
         }
-        
-        //A function to save the data to the SQL table on the server.  This gets called at the end of the file.
-        function save_data(data_table,data){
-          
-            //Add data to the jsPsych data file
-            jsPsych.data.addProperties({
-                workerId: workerId,
-                assignmentId: assignmentId,
-                hitId: hitId
-            });
-          
-            //Use AJAX to post the data onto the server
-            $.ajax({
-                type:'post',
-                cache: false,
-                url: 'savedata.php',
-                data: {
-                    table: data_table,
-                    json: JSON.stringify(data),
-                },
-                success: function(output) { console.log(output); } // write the result to javascript console
-            });
-        }
+        else // If the completionCode doesn't exist in the SQL database
+            jsPsych.data.addProperties({completion_code: completionCode}); // Add the completionCode to the data 
+    }
+    
+    //A function to save the data to the SQL table on the server.  This gets called at the end of the file.
+    function save_data(data_table,data){
       
-        // sample function that might be used to check if a subject has given
-        // consent to participate.
-        function check_consent(elem) {
-          if ($('#consent_checkbox').is(':checked')) {
-            return true;
-          }
-          else {
-            alert("If you wish to participate, you must check the box next to the statement 'I agree to participate in this study.'");
-            return false;
-          }
-          return false;
-        };
+        //Add data to the jsPsych data file
+        jsPsych.data.addProperties({
+            workerId: workerId,
+            assignmentId: assignmentId,
+            hitId: hitId
+        });
+      
+        //Use AJAX to post the data onto the server
+        $.ajax({
+            type:'post',
+            cache: false,
+            url: 'savedata.php',
+            data: {
+                table: data_table,
+                json: JSON.stringify(data),
+            },
+            success: function(output) { console.log(output); } // write the result to javascript console
+        });
+    }
+    
+    // sample function that might be used to check if a subject has given
+    // consent to participate.
+    function check_consent(elem) {
+      if ($('#consent_checkbox').is(':checked')) {
+        return true;
+      }
+      else {
+        alert("If you wish to participate, you must check the box next to the statement 'I agree to participate in this study.'");
+        return false;
+      }
+      return false;
+    };
 
 
   </script>
