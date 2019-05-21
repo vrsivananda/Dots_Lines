@@ -15,6 +15,7 @@
 	<script src="jspsych-6.0.5/plugins/jspsych-fullscreen.js"></script>
     <script src="jspsych-6.0.5/plugins/jspsych-lines-coherence.js"></script>
     <script src="jspsych-6.0.5/plugins/jspsych-RDK.js"></script>
+    <script src="jsPsych-6.0.5/plugins/jspsych-html-slider-response.js"></script>
     
     <!--Your jsPsych plugins above this line-->
     <script src="jspsych-6.0.5/plugins/jspsych-external-html.js"></script>
@@ -67,64 +68,69 @@
 	//-----Parameters-----
 	//--------------------
 	
+	
 	//General Timing
 	let presentation_duration_rdk = 2000;
 	let presentation_duration_lines = 2000;
 	
 	//General drawing
 	let borderRadius = 400; 
-	let distanceFromCenter = 450; //Distance of left and right stimuli from center
-	let stimuliCenterX = [window.innerWidth / 2 - distanceFromCenter, window.innerWidth / 2, window.innerWidth / 2 + distanceFromCenter];
+	let distanceFromCenterX = 450; //Distance of left and right stimuli from center
+	let stimuliCenterX = [window.innerWidth / 2 - distanceFromCenterX, window.innerWidth / 2, window.innerWidth / 2 + distanceFromCenterX];
 	
 	//General RDK
 	let nDots = 100;
 	let dotLife = 20;
+	let dotsCoherenceCollection = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8];
+	
+	//General Lines
+	let linesPerRowArray = [1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1];
+	let nLines = linesPerRowArray.reduce((total, current) => total + current, 0);
+	let linesCoherenceCollection = [3/nLines, 9/nLines, 12/nLines, 15/nLines, 18/nLines, 21/nLines, 24/nLines, 27/nLines, 30/nLines, 33/nLines, 36/nLines, 39/nLines, 42/nLines, 45/nLines, 48/nLines];
+	
+	//General variables
+	let actualPoints = 0;
 	
 	//Example parameters
-	eg_coherence = [0.1, 0.4, 0.8];
-
-	var sampleLines = {
-	    type: 'lines-coherence',
-	    coherence: [0.2, 0.6, 0.4],
-	    lines_per_row_array: [1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1],
-	    stimuli_center_x: stimuliCenterX,
-	    angle_buffer: 10,
-	    line_height: 20,
-	    choices: jsPsych.NO_KEYS,
-	    number_of_stimuli: 3,
-	    background_color: "white",
-	    border_radius: borderRadius/2,
-	    response_during_stimulus: false,
-	    stimulus_duration: presentation_duration_lines
-	};
-
-	var sampleRDK = {
-	    type: 'RDK',
-	    coherence: [0.2, 0.6, 0.4],
-	    number_of_dots: nDots,
-	    dot_life: dotLife,
-	    border: true,
-	    number_of_apertures: 3,
-	    aperture_center_x: stimuliCenterX,
-	    coherent_direction: 270,
-	    aperture_height: borderRadius,
-	    aperture_width: borderRadius,
-	    trial_duration: -1,
-	    background_color: "white",
-	    dot_color: "black",
-	    stimulus_duration: presentation_duration_rdk
-	};
-
-
+	let eg_coherence = [0.1, 0.4, 0.8];
+	
+	//------------Practice-------------
+	let practicePointsThreshold = 12;// >= this amount to pass
+	let practiceTrialsPerStimuli = 10;
+    let feedbackTime = null;//null is indefinitely
+    let practicePoints = 0;
+    //dots
+    let practiceDotsD = [0, 0.1, 0.2];
+    let practiceDotsNT = [0.4, 0.5, 0.6];
+    let practiceDotsT = [0.8, 0.9, 1];
+    //lines
+    let practiceLinesD = [0/nLines, 3/nLines, 5/nLines];
+    let practiceLinesNT = [10/nLines, 13/nLines, 15/nLines];
+    let practiceLinesT = [25/nLines, 30/nLines, 40/nLines];
+    
+    //Make the templates
+    let sampleLines;
+    let sampleRDK;
+    let sampleSlider;
+    let sampleFeedback;
+    let sampleRestScreen;
+    makeSamples();
+    
 
 	var timeline = [];
 	//timeline.push(fullscreen());
 	//timeline.push(sampleLines);
 	//timeline.push(sampleRDK);
 	//timeline.push(instructions_eg1());
-	timeline.push(example_1());
+	//timeline.push(example_1());
 	//timeline.push(instructions_eg2());
-	timeline.push(example_2());
+	//timeline.push(example_2());
+	//timeline.push(instructions_eg3());
+	//timeline.push(example_3());
+	//timeline.push(instructions_practice1());
+	//timeline.push(practice_1());
+	//timeline.push(instructions_actualTrials());
+	timeline.push(createActualTrials());
 
 
 
@@ -189,7 +195,7 @@
     
     function example_1(){
     	//Make a copy of the object
-    	let tempTrial = Object.assign(sampleRDK,{});
+    	let tempTrial = Object.assign({}, sampleRDK);
     	
     	//Change the values for the example
     	tempTrial.coherence = eg_coherence;
@@ -213,7 +219,7 @@
     
     function example_2(){
     	//Make a copy of the object
-    	let tempTrial = Object.assign(sampleLines,{});
+    	let tempTrial = Object.assign({}, sampleLines);
     	
     	//Change the values for the example
     	tempTrial.coherence = eg_coherence;
@@ -226,14 +232,349 @@
         return {
             type: 'instructions',
             pages: [
-            '<p> Good work!</p> <p>After you click on the circle in which you think has the most downward-moving dots or vertical lines, a slider will pop up and you will be asked to indicate your confidence.</p><p> Use the slider to indicate your confidence. If you are certain that your choice is correct, then drag the slider all the way up. If you are completely guessing, then drag the slider all the way down. If you think that there is a 75% chance that you are correct, then drag it halfway up.</p><p> There will be labels on the slider to guide you</p>',
-            '<p> </p>',
-            '<p> </p>'
+            '<p> Good work!</p> <p>After you click on the circle in which you think has the most downward-moving dots or vertical lines, a slider will pop up and you will be asked to indicate your confidence.</p><p> Use the slider to indicate your confidence. If you are certain that your choice is correct, then drag the slider all the way up. If you are completely guessing, then drag the slider all the way down. If your confidence is in between those two values, drag to a point along the slider that accurately reflects your confidence.</p><p> Remember to use the full range of the slider. There will be labels on the slider to guide you.</p>',
+            '<p> When you click "Next" below, 2 trials will be presented. The first trial will be with dots, and the second trial will be with lines.</p> <p>Remember to click on the circle which has the most downward-moving dots or the most vertical lines once the dots or lines disappear. Then rate your confidence on how likely you are to be correct.</p>'
             ],
             show_clickable_nav: true,
             data: {trialType: 'instructions_eg3'}
         };
     }
+    
+    function example_3(){
+    	//RDK
+    	let tempRDK = Object.assign({}, sampleRDK);
+    	
+    	//Lines
+    	let tempLines = Object.assign({}, sampleLines);
+    	
+    	//Confidence
+    	let tempSlider = Object.assign({}, sampleSlider);
+    	
+    	let tempTrial = {
+    		type: 'html-slider-response',
+    		timeline:[tempRDK, tempSlider, tempLines, tempSlider]
+    	};
+    	
+    	return tempTrial;
+    }
+        
+        
+    function instructions_practice1(){
+        return {
+            type: 'instructions',
+            pages: [
+            '<p> Nice job!</p> <p>We will have 2 sets of 10 practice trials for your to get familiar with the task. You will be given feedback on the practice trials on whether or not you chose the correct circle.</p><p>Click "Next" below to start the practice trials.</p>'
+            ],
+            show_clickable_nav: true,
+            data: {trialType: 'instructions_eg3'}
+        };
+    }
+    
+    function practice_1(){
+    	
+    	let rdkArray = [];
+    	
+    	//For loop to create RDK trials
+    	for(let i = 0; i < practiceTrialsPerStimuli; i++){
+    		
+    		//Get one random value from each group
+    		let coh_T = jsPsych.randomization.sampleWithoutReplacement(practiceDotsT, 1);
+    		let coh_NT = jsPsych.randomization.sampleWithoutReplacement(practiceDotsNT, 1);
+    		let coh_D = jsPsych.randomization.sampleWithoutReplacement(practiceDotsD, 1);
+    		//Create the order of the stimulus
+    		let coherenceArray = jsPsych.randomization.shuffle(coh_T.concat(coh_NT.concat(coh_D)));
+    		console.log(coherenceArray);
+			
+	    	//RDK
+	    	let tempRDK = Object.assign({}, sampleRDK);
+	    	tempRDK.coherence = coherenceArray;
+	    	//Confidence
+	    	let tempSlider = Object.assign({}, sampleSlider);
+	    	//Feedback
+	    	let tempFeedback = Object.assign({}, sampleFeedback);
+	    	
+	    	let tempTrial = {
+	    		type: 'html-slider-response',
+	    		timeline:[tempRDK, tempSlider, tempFeedback]
+	    	};
+	    	
+	    	rdkArray.push(tempTrial);
+    		
+    	}
+    	
+    	
+    	let linesArray = [];
+    	
+    	//For loop to create Lines trials
+    	for(let i = 0; i < practiceTrialsPerStimuli; i++){
+    		
+    		//Get one random value from each group
+    		let coh_T = jsPsych.randomization.sampleWithoutReplacement(practiceLinesT, 1);
+    		let coh_NT = jsPsych.randomization.sampleWithoutReplacement(practiceLinesNT, 1);
+    		let coh_D = jsPsych.randomization.sampleWithoutReplacement(practiceLinesD, 1);
+    		//Create the order of the stimulus
+    		let coherenceArray = jsPsych.randomization.shuffle([coh_T, coh_NT, coh_D]);
+    	
+	    	//Lines
+	    	let tempLines = Object.assign({}, sampleLines);
+	    	tempLines.coherence = coherenceArray;
+	    	//Confidence
+	    	let tempSlider = Object.assign({}, sampleSlider);
+	    	//Feedback
+	    	let tempFeedback = Object.assign({}, sampleFeedback);
+	    	
+	    	let tempTrial = {
+	    		type: 'html-slider-response',
+	    		timeline:[tempLines, tempSlider, tempFeedback]
+	    	};
+	    	
+	    	linesArray.push(tempTrial);
+    		
+    	}
+    	
+    	let p1Array = Math.random() > 0.5 ? rdkArray.concat(linesArray) : linesArray.concat(rdkArray);
+    	
+    	
+    	return tempTrial = {
+	    	type: 'html-slider-response',
+	    	timeline: p1Array
+	    };
+    }
+    
+    //Instructions for the actual trials, or kicking them out
+    function instructions_actualTrials(){
+        return {
+            type: 'instructions',
+            pages: function(){
+                //If we pass
+                if(practicePoints >= practicePointsThreshold){
+                    return [
+                    '<p> Well done!</p></p>You are done the practice trials! Hopefully you\'re somewhat familiar with the task and point system now.</p>',
+                    '<p>We will be starting the main experiment next. There will no feedback given at the end of each trial, but we will show you your points at the end of each block. There will be 6 blocks total, with a break screen in between the blocks.</p><p> These trials will be more difficult than the practice trials, so don\'t worry if you don\'t know the answers. </p>',
+                    '<p> If you are unsure of which circle has the most downward-moving dots or vertical lines, just take your best guess.</p><p>Remember that this task is meant to be difficult, so do not be discouraged if you are guessing much of the time.</p><p>Whenever you are ready, click "Next" below to start the actual trials.</p>'
+                    ];
+                }
+                //Else we fail
+                else{
+                    return [
+                    '<p> Thank you for participating. Unfortunately your score does not allow you to proceed with the experiment. </p><p> Please email <b>ucrNeuralComputation@gmail.com</b> with: <br><br>(1) Your unique ID for this task: <b>' + workerId + ' </b>, and <br>(2) Your own mTurk worker ID <br><br>to receive compensation for your time.</p><p>You have not been provided with the completion code, so please <span style="color:red"><b>do NOT submit the assignment.</span> Do not paste anything in the completion code box on the mTurk website.</b> We will compensate you through a customized Dummy HIT for you only. Please <b>return this assignment</b> so that someone else can do the task. <span style="color:red"><b>If you submit the assignment, we will REJECT the assignment</b></span>.</p><p>Once you have emailed us with the 2 pieces of information listed above, feel free to close this browser window and return the assignment. You do not have to do anything else. We sincerely thank you for your time.</p>'
+                    ];
+                }
+            },
+            show_clickable_nav: function(){
+                if(practicePoints >= practicePointsThreshold){
+                    return true;
+                }
+                else{
+                    return false;
+                }
+            },
+            keyforward: 'q',
+            data: {trialType: 'instructions_actualTrials'}
+        };
+    }
+    
+    //Function to create the actual trials
+    function createActualTrials(){
+    	
+    	//Actual trials array
+    	let actualTrialsArray = [];
+    	
+    	//Determine if we start with dots or lines
+    	if(Math.random() > 0.5){
+    		var firstSampleStimuli = sampleRDK;
+    		var firstCollectionArray = dotsCoherenceCollection;
+    		var firstStimuliTrialType = "actual_RDK"
+    		var secondSampleStimuli = sampleLines;
+    		var secondCollectionArray = linesCoherenceCollection;
+    		var secondStimuliTrialType = "actual_Lines" 
+    	}
+    	else{
+    		var firstSampleStimuli = sampleLines;
+    		var firstCollectionArray = linesCoherenceCollection;
+    		var firstStimuliTrialType = "actual_Lines" 
+    		var secondSampleStimuli = sampleRDK;
+    		var secondCollectionArray = dotsCoherenceCollection; 
+    		var secondStimuliTrialType = "actual_RDK"
+    	}
+    	
+    	//For each block
+    	for(let i = 0; i < 6; i++){
+    		//first, third, and fifth blocks
+    		if(i%2 === 0){
+    			var currentSampleStimuli = firstSampleStimuli;
+    			var currentCollectionArray = firstCollectionArray;
+    			var currentStimuliTrialType = firstStimuliTrialType;
+    		}
+    		else{
+    			var currentSampleStimuli = secondSampleStimuli;
+    			var currentCollectionArray = secondCollectionArray;
+    			var currentStimuliTrialType = secondStimuliTrialType;
+    		}
+    		
+    		//Each trial in the block
+    		for(let j = 0; j < 50; j++){
+    			
+    			let currentSlider = Object.assign({}, sampleSlider);
+    			
+    			//Make a copy of the template and fill in the parameters
+    			let currentStimuliTrial = Object.assign({}, currentSampleStimuli);
+    			let currentCoherence = drawSamples(currentCollectionArray);
+    			currentStimuliTrial.coherence = currentCoherence;
+    			currentStimuliTrial.on_finish = function(data){
+    				data.correct ? actualPoints++ : actualPoints; 
+    				console.log("actualPoints: " + actualPoints);
+    			}
+    			currentStimuliTrial.data = {
+    				trialType: currentStimuliTrialType
+    			}
+    			
+    			let tempTrial = {
+    				type: "html-slider-response",
+    				timeline: [currentStimuliTrial, currentSlider]
+    			}
+    			
+    			//Push the tempTrial into the array
+    			actualTrialsArray.push(tempTrial);
+    			
+    		}//End of each trial for loop
+    		
+    		//Add in the rest screen
+    		let tempRestScreen = Object.assign({}, sampleRestScreen);
+    		actualTrialsArray.push(sampleRestScreen);
+    		
+    		
+    	}//End of each block for loop
+    	
+    	console.log(actualTrialsArray[0]);
+    	
+    	//Return the array
+    	return {
+    		type: 'html-slider-response',
+    		timeline: actualTrialsArray
+    	};
+    	
+    }//End of createActualTrials function
+    
+    //Function to draw the samples from the collections
+    function drawSamples(collectionArray){
+    	
+    	//Get the T, NT, and D coherence values
+    	T_NT = jsPsych.randomization.sampleWithoutReplacement(collectionArray.slice(collectionArray.length - 5, collectionArray.length), 2);
+    	D = jsPsych.randomization.sampleWithoutReplacement(collectionArray.slice(0, 10), 1);
+    	
+    	//Shuffle and return the values as an array
+    	return jsPsych.randomization.shuffle(T_NT.concat(D));
+    }
+    
+    //Function to make templates of all the trials
+    function makeSamples(){
+
+		sampleLines = {
+		    type: 'lines-coherence',
+		    coherence: [0.2, 0.6, 0.4],
+		    lines_per_row_array: linesPerRowArray,
+		    stimuli_center_x: stimuliCenterX,
+		    angle_buffer: 10,
+		    line_height: 20,
+		    choices: jsPsych.NO_KEYS,
+		    number_of_stimuli: 3,
+		    background_color: "white",
+		    border_radius: borderRadius/2,
+		    response_during_stimulus: false,
+		    stimulus_duration: presentation_duration_lines
+		};
+
+		sampleRDK = {
+		    type: 'RDK',
+		    coherence: [0.2, 0.6, 0.4],
+		    number_of_dots: nDots,
+		    dot_life: dotLife,
+		    border: true,
+		    number_of_apertures: 3,
+		    aperture_center_x: stimuliCenterX,
+		    coherent_direction: 270,
+		    aperture_height: borderRadius,
+		    aperture_width: borderRadius,
+		    trial_duration: -1,
+		    background_color: "white",
+		    dot_color: "black",
+		    stimulus_duration: presentation_duration_rdk
+		};
+		
+		
+	    sampleSlider = {
+	    	type: 'html-slider-response',
+	    	stimulus: '',
+	        button_label: 'Submit',
+	      	prompt: 'How confident are you in your response?',
+	      	labels:['Completely guessing, Completely certain']
+	    };
+	    	
+	    //Feedback trial
+	    sampleFeedback ={
+	        type: 'html-keyboard-response',
+	        stimulus: function(){
+	            //Get the data of the last trial
+	            let data = jsPsych.data.getLastTrialData();
+	            
+	            var message = '';
+	            
+	            //First response
+	            let correct = JSON.parse(jsPsych.data.get().last(2).values()[0].correct);
+	            
+	            console.log("CORRECT: " + correct);
+	            
+	            if(correct === true){
+	            	practicePoints++;
+	                message += '<h1 style="color:green"> Correct circle chosen! </h1>';
+	            }
+	            else if(correct === false){
+	                message += '<h1 style="color:red"> Incorrect circle chosen! </h1>';
+	            }
+	                            
+	            message += "<br><br>";
+	            
+	            message += "<h3>You currently have " + practicePoints + " point";
+	            message += practicePoints >= 2 || practicePoints == 0 ? "s":"";
+	            
+	            //Instructions to move on
+	            message += '!</h3><br><p>Press the spacebar to move on.</p>';
+	            
+	            return message;
+	        },
+	        choices: [32],
+	        prompt: "",
+	        trial_duration: feedbackTime,
+	        data: {
+	            trialType: 'feedback'
+	        },
+	    };
+	    	
+	    //Rest trial
+	    sampleRestScreen ={
+	        type: 'html-keyboard-response',
+	        stimulus: function(){
+	        	
+	        	let message = "<h2>Well done!</h2><br><br>"
+	            
+	            message += "<h2>You currently have " + actualPoints + " point";
+	            message += actualPoints >= 2 || actualPoints == 0 ? "s":"";
+	            
+	            //Instructions to move on
+	            message += '!</h2><br><p>Feel free to take a 1-minute break to rest your eyes. Whenever you are ready, press the spacebar to move on.</p>';
+	            
+	            return message;
+	        },
+	        choices: [32],
+	        prompt: "",
+	        trial_duration: feedbackTime,
+	        data: {
+	            trialType: 'restScreen'
+	        },
+	    };
+
+	}
         
 
 	//-------- Trial-Making --------

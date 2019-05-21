@@ -287,7 +287,7 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		var linesArray;
 		
 		//Choice of the subject
-		var stimuliChosen;
+		var stimuliChosenIndex;
 
 
 		//Initialize object to store the response data. Default values of -1 are used if the trial times out and the subject has not pressed a valid key
@@ -370,6 +370,26 @@ jsPsych.plugins["lines-coherence"] = (function() {
 			
 			//Remove the mouse event listener
 			canvas.removeEventListener("click", null);
+			
+			//Figure out T, NT, and D
+			var sortedCoherence = coherence_array.slice().sort((a,b)=>{return b-a});
+			
+			var ranksCoherence = coherence_array.slice().map((v) => { return sortedCoherence.indexOf(v) });
+			
+			if(ranksCoherence[stimuliChosenIndex] === 0){
+				stimuliChosen = "T";
+			}
+			else if(ranksCoherence[stimuliChosenIndex] === 1){
+				stimuliChosen = "NT";
+			}
+			else if(ranksCoherence[stimuliChosenIndex] === 2){
+				stimuliChosen = "D";
+			}
+			
+			//Get the coherences
+			let coh_T = coherence_array[ranksCoherence.indexOf(0)];
+			let coh_NT = coherence_array[ranksCoherence.indexOf(1)];
+			let coh_D = coherence_array[ranksCoherence.indexOf(2)];
 
 			//Place all the data to be saved from this trial in one data object
 			var trial_data = { 
@@ -395,7 +415,11 @@ jsPsych.plugins["lines-coherence"] = (function() {
 				"line_space_y": trial.line_space_y,
 				"canvas_width": canvasWidth,
 				"canvas_height": canvasHeight,
-				"stimuli_chosen": stimuliChosen
+				"stimuliChosenIndex": stimuliChosenIndex,
+				"stimuliChosen": stimuliChosen,
+				"coh_T": coh_T,
+				"coh_NT": coh_NT,
+				"coh_D": coh_D
 				
 			}
 			console.log("correctOrNot: " + trial_data.correct);
@@ -429,7 +453,7 @@ jsPsych.plugins["lines-coherence"] = (function() {
 			}
 			
 			//Compare the stimuli chosen with the index to get the correct answer
-			if(maxIndex + 1 === stimuliChosen){
+			if(maxIndex === stimuliChosenIndex){
 				return true;
 			}
 			else{
@@ -704,7 +728,7 @@ jsPsych.plugins["lines-coherence"] = (function() {
 					
 					//Calculate the distance and determine if it is in the circle
 					if(Math.sqrt(Math.pow(stimuliCenterX - x, 2) + Math.pow(stimuliCenterY - y, 2)) <= borderRadius){
-						stimuliChosen = i+1;//+1 so that it starts at 1
+						stimuliChosenIndex = i;
 						end_trial();
 					}
 				}

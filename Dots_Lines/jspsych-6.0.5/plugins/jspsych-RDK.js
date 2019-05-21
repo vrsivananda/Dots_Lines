@@ -537,8 +537,8 @@ jsPsych.plugins["RDK"] = (function() {
 					
 					//Calculate the distance and determine if it is in the circle
 					if(Math.sqrt(Math.pow(stimuliCenterX - x, 2) + Math.pow(stimuliCenterY - y, 2)) <= apertureWidth/2){
-						stimuliChosen = i+1;//+1 so that it starts at 1
-						console.log("stimuliChosen: " + stimuliChosen);
+						stimuliChosenIndex = i;
+						console.log("stimuliChosenIndex: " + stimuliChosenIndex);
 						end_trial();
 					}
 				}
@@ -586,6 +586,26 @@ jsPsych.plugins["RDK"] = (function() {
 			if (typeof keyboardListener !== 'undefined') {
 				jsPsych.pluginAPI.cancelKeyboardResponse(keyboardListener);
 			}
+			
+			//Figure out T, NT, and D
+			var sortedCoherence = coherenceArray.slice().sort((a,b)=>{return b-a});
+			
+			var ranksCoherence = coherenceArray.slice().map((v) => { return sortedCoherence.indexOf(v) });
+			
+			if(ranksCoherence[stimuliChosenIndex] === 0){
+				stimuliChosen = "T";
+			}
+			else if(ranksCoherence[stimuliChosenIndex] === 1){
+				stimuliChosen = "NT";
+			}
+			else if(ranksCoherence[stimuliChosenIndex] === 2){
+				stimuliChosen = "D";
+			}
+			
+			//Get the coherences
+			let coh_T = coherenceArray[ranksCoherence.indexOf(0)];
+			let coh_NT = coherenceArray[ranksCoherence.indexOf(1)];
+			let coh_D = coherenceArray[ranksCoherence.indexOf(2)];
 
 			//Place all the data to be saved from this trial in one data object
 			var trial_data = { 
@@ -627,8 +647,11 @@ jsPsych.plugins["RDK"] = (function() {
 				"border_color": trial.border_color,
 				"canvas_width": canvasWidth,
 				"canvas_height": canvasHeight,
-				"stimuliChosen": stimuliChosen
-				
+				"stimuliChosenIndex": stimuliChosenIndex,
+				"stimuliChosen": stimuliChosen,
+				"coh_T": coh_T,
+				"coh_NT": coh_NT,
+				"coh_D": coh_D				
 			}
 			
 			//Remove the canvas as the child of the display_element element
@@ -676,7 +699,7 @@ jsPsych.plugins["RDK"] = (function() {
 			}
 			
 			//Compare the stimuli chosen with the index to get the correct answer
-			if(maxIndex + 1 === stimuliChosen){
+			if(maxIndex === stimuliChosenIndex){
 				return true;
 			}
 			else{

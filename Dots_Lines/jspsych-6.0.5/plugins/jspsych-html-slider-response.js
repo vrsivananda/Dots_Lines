@@ -48,7 +48,7 @@ jsPsych.plugins['html-slider-response'] = (function() {
         description: 'Sets the step of the slider'
       },
       labels: {
-        type: jsPsych.plugins.parameterType.HTML_STRING,
+        type: jsPsych.plugins.parameterType.KEYCODE,
         pretty_name:'Labels',
         default: [],
         array: true,
@@ -89,29 +89,49 @@ jsPsych.plugins['html-slider-response'] = (function() {
   }
 
   plugin.trial = function(display_element, trial) {
-
-    var html = '<div id="jspsych-html-slider-response-wrapper" style="margin: 100px 0px;">';
-    html += '<div id="jspsych-html-slider-response-stimulus">' + trial.stimulus + '</div>';
-    html += '<div class="jspsych-html-slider-response-container" style="position:relative;">';
-    html += '<input type="range" value="'+trial.start+'" min="'+trial.min+'" max="'+trial.max+'" step="'+trial.step+'" style="width: 100%;" id="jspsych-html-slider-response-response"></input>';
-    html += '<div>'
-    for(var j=0; j < trial.labels.length; j++){
+    
+    
+    //[sivaHack]
+    //Get the width of the window
+    var windowHeight = window.innerHeight;
+    
+    //Width of the slider
+    var sliderHeight = windowHeight/2;
+    
+    
+    var html = '';
+    
+    html +='<div><span style="text-align: center; font-size: 18px;<b>">'+ 'Extremely confident' +'</b></span></div>';
+    
+    html +='<div id="jspsych-html-slider-response-wrapper" style="margin: 0px 0px; display: inline-block">' + 
+                  '<div id="jspsych-html-slider-response-stimulus">' + trial.stimulus + 
+                  '</div>' +
+                  '<div class="jspsych-html-slider-response-container" style="position:relative;">' +
+                    '<input type="range" value="'+trial.start+'" min="'+trial.min+'" max="'+trial.max+'" step="'+trial.step+`" style="height: ${sliderHeight}px; -webkit-appearance: slider-vertical; writing-mode: bt-lr; display: inline-block"` +
+                      `orient="vertical"id="jspsych-html-slider-response-response"></input>`+
+                  '</div>';
+  /*  for(var j=0; j < trial.labels.length; j++){
       var width = 100/(trial.labels.length-1);
       var left_offset = (j * (100 /(trial.labels.length - 1))) - (width/2);
       html += '<div style="display: inline-block; position: absolute; left:'+left_offset+'%; text-align: center; width: '+width+'%;">';
-      html += '<span style="text-align: center; font-size: 80%;">'+trial.labels[j]+'</span>';
+      //html += '<span style="text-align: center; font-size: 80%;">'+trial.labels[j]+'</span>';
+      html += '<span style="text-align: center; font-size: 24px;">'+trial.labels[j]+'</span>';
       html += '</div>'
     }
     html += '</div>';
     html += '</div>';
-    html += '</div>';
+  */  html += '</div>';
+  
+    html += '<div><span style="text-align: center; font-size: 18px;<b>">'+ 'Extremely unconfident' +'</b></span></div>';
 
     if (trial.prompt !== null){
-      html += trial.prompt;
+      //html += trial.prompt;
+      html += '<div style="text-align: center; font-size: 25px; margin: 50px 0px 10px 0px;"><b>'+trial.prompt+'</b></div>';
+      html += '<span style="text-align: center; font-size: 20px;">'+'Drag the slider to indicate your confidence <br/> and press the spacebar to submit.'+'</span>';
     }
 
     // add submit button
-    html += '<button id="jspsych-html-slider-response-next" class="jspsych-btn">'+trial.button_label+'</button>';
+  //  html += `<button id="jspsych-html-slider-response-next" class="jspsych-btn" style="display:inline-block; height: ${sliderHeight}px; width:70px;">`+trial.button_label+'</button>';
 
     display_element.innerHTML = html;
 
@@ -119,20 +139,39 @@ jsPsych.plugins['html-slider-response'] = (function() {
       rt: null,
       response: null
     };
-
-    display_element.querySelector('#jspsych-html-slider-response-next').addEventListener('click', function() {
+    
+    
+    //Declare global variable to be defined in startKeyboardListener function and to be used in end_trial function
+    var keyboardListener; 
+    startKeyboardListener();
+    
+    //Function to start the keyboard listener
+    function startKeyboardListener(){
+      //Create the keyboard listener to listen for subjects' key response
+      keyboardListener = jsPsych.pluginAPI.getKeyboardResponse({
+        callback_function: after_response, //Function to call once the subject presses a valid key
+        valid_responses: [32], //The keys that will be considered a valid response and cause the callback function to be called
+        rt_method: 'performance', //The type of method to record timing information. 'performance' is not yet supported by all browsers, but it is supported by Chrome. Alternative is 'date', but 'performance' is more precise.
+        persist: true, //If set to false, keyboard listener will only trigger the first time a valid key is pressed. If set to true, it has to be explicitly cancelled by the cancelKeyboardResponse plugin API.
+        allow_held_key: false //Only register the key once, after this getKeyboardResponse function is called. (Check JsPsych docs for better info under 'jsPsych.pluginAPI.getKeyboardResponse').
+      });
+    }
+    
+    //Function to record the first response by the subject
+    function after_response(info) {
       // measure response time
       var endTime = (new Date()).getTime();
       response.rt = endTime - startTime;
       response.response = display_element.querySelector('#jspsych-html-slider-response-response').value;
 
       if(trial.response_ends_trial){
-        end_trial();
-      } else {
-        display_element.querySelector('#jspsych-html-slider-response-next').disabled = true;
+        //Only end the trial if the position is not in the intial position
+        if(Number(response.response) !== trial.start){ //[sivaHack]
+          jsPsych.pluginAPI.cancelKeyboardResponse(keyboardListener);
+          end_trial();
+        }
       }
-
-    });
+    }//End of after_response
 
     function end_trial(){
 
