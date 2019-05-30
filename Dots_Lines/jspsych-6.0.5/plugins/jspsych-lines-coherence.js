@@ -20,6 +20,12 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		      array: true,
 		      description: "The correct keys for that trial"
 		    },
+		    fixation_cross_duration: {
+		      type: jsPsych.plugins.parameterType.INT,
+		      pretty_name: "Fixation Cross duration",
+		      default: 500,
+		      description: "The length of fixation cross presentation before the stimulus presentation"
+		    },
 		    trial_duration: {
 		      type: jsPsych.plugins.parameterType.INT,
 		      pretty_name: "Trial duration",
@@ -123,6 +129,36 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		      default: 30,
 		      description: "The amount of space between each row, measured from the center of each row."
 		    },
+		    fixation_cross: {
+		      type: jsPsych.plugins.parameterType.INT, //boolean
+		      pretty_name: "Fixation cross",
+		      default: false,
+		      description: "If true, then a fixation cross will be present in the middle of the screen"
+		    },
+		    fixation_cross_width: {
+		      type: jsPsych.plugins.parameterType.INT,
+		      pretty_name: "Fixation cross width",
+		      default: 20,
+		      description: "The width of the fixation cross in pixels"
+		    },
+		    fixation_cross_height: {
+		      type: jsPsych.plugins.parameterType.INT,
+		      pretty_name: "Fixation cross height",
+		      default: 20,
+		      description: "The height of the fixation cross in pixels"
+		    },
+		    fixation_cross_color: {
+		      type: jsPsych.plugins.parameterType.STRING,
+		      pretty_name: "Fixation cross color",
+		      default: "black",
+		      description: "The color of the fixation cross"
+		    },
+		    fixation_cross_thickness: {
+		      type: jsPsych.plugins.parameterType.INT,
+		      pretty_name: "Fixation cross thickness",
+		      default: 1,
+		      description: "The thickness of the fixation cross"
+		    },
 		    border: {
 		      type: jsPsych.plugins.parameterType.BOOL,
 		      pretty_name: "Border",
@@ -161,6 +197,7 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		//assingParameterValue just checks if it is undefined and returns the default if it is undefined
 		trial.choices = assignParameterValue(trial.choices, []);
 		trial.correct_choice = assignParameterValue(trial.correct_choice, undefined);
+		trial.fixation_cross_duration = assignParameterValue(trial.fixation_cross_duration, 500);
 		trial.trial_duration = assignParameterValue(trial.trial_duration, 500);
 		trial.stimulus_duration = assignParameterValue(trial.stimulus_duration, 500);
 		trial.response_ends_trial = assignParameterValue(trial.response_ends_trial, true);
@@ -179,6 +216,11 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		trial.stimuli_center_y = assignParameterValue(trial.stimuli_center_y, window.innerHeight/2);
 		trial.line_space_x = assignParameterValue(trial.line_space_x, 60); 
 		trial.line_space_y = assignParameterValue(trial.line_space_y, 30);
+		trial.fixation_cross = assignParameterValue(trial.fixation_cross, false); 
+		trial.fixation_cross_width = assignParameterValue(trial.fixation_cross_width, 20);
+		trial.fixation_cross_height = assignParameterValue(trial.fixation_cross_height, 20);
+		trial.fixation_cross_color = assignParameterValue(trial.fixation_cross_color, "black");
+		trial.fixation_cross_thickness = assignParameterValue(trial.fixation_cross_thickness, 1);
 		trial.border = assignParameterValue(trial.border, true);
 		trial.border_thickness = assignParameterValue(trial.border_thickness, 1);
 		trial.border_color = assignParameterValue(trial.border_color, "black");
@@ -203,6 +245,13 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		var lineSpaceX = trial.line_space_x;
 		var lineSpaceY = trial.line_space_y;
 		
+		//Fixation Cross Parameters
+		var fixationCross = trial.fixation_cross; //To display or not to display the cross
+		var fixationCrossWidth = trial.fixation_cross_width;  //The width of the fixation cross in pixels
+		var fixationCrossHeight = trial.fixation_cross_height; //The height of the fixation cross in pixels
+		var fixationCrossColor = trial.fixation_cross_color; //The color of the fixation cross
+		var fixationCrossThickness = trial.fixation_cross_thickness; //The thickness of the fixation cross, must be positive number above 1
+		
 		//Border Parameters
 		var border = trial.border;
 		var borderThickness = trial.border_thickness;
@@ -210,6 +259,7 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		var borderRadius = trial.border_radius;
 		
 		var stimulusDuration = trial.stimulus_duration;
+		var fixationCrossDuration = trial.fixation_cross_duration;
 		var responseDuringStimulus = trial.response_during_stimulus;
 
 		//--------------------------------------
@@ -303,10 +353,22 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		var keyboardListener;
 		startEventListeners();
 		
-		//Timer to end phase1 (stimulus presentation) and start phase2 (get mouse and keyboard response)
-		var timeoutID = setTimeout(startPhase2, stimulusDuration);
+		//To be used in start()
+		var timeoutID;
+
+		//Set up variables for multiple stimuli
+		setUpMultipleStimuli();
 		
-		start();
+		if(border){
+			loopThroughStimuli(drawBorder, null);
+		}
+		
+		if(fixationCross){
+			drawFixationCross();
+		}
+		console.log("fixationCrossDuration: " + fixationCrossDuration);
+		
+		setTimeout(start, fixationCrossDuration);
 		
 		//--------Lines Coherence variables and function calls end--------
 
@@ -501,15 +563,15 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		
 		//Function to start the stimulus
 		function start(){
-
-		    //Set up variables for multiple stimuli
-		    setUpMultipleStimuli();
 		    
 		    //Create the stimuli
 		    loopThroughStimuli(createStimulus, null);
 		    
 		    //Draw the stimuli
 		    loopThroughStimuli(drawLines, lineColor);
+		    
+			//Timer to end phase1 (stimulus presentation) and start phase2 (get mouse and keyboard response)
+			timeoutID = setTimeout(startPhase2, stimulusDuration);
 		    
 		}
 		
@@ -646,15 +708,42 @@ jsPsych.plugins["lines-coherence"] = (function() {
 		    
 		    //Draw the border if we want it
 		    if(border == true){
-		    	
-	          	ctx.lineWidth = borderThickness;
-	          	ctx.strokeStyle = borderColor;
-	          	ctx.beginPath();
-	          	ctx.ellipse(stimuliCenterX, stimuliCenterY, borderRadius, borderRadius, 0, 0, Math.PI*2);
-	          	ctx.stroke();
+		    	drawBorder();
 		    }
 		    
 		}//End of createStimulus function
+		
+		//Function to draw the border
+		function drawBorder(){
+		    	
+	        ctx.lineWidth = borderThickness;
+	        ctx.strokeStyle = borderColor;
+	        ctx.beginPath();
+	        ctx.ellipse(stimuliCenterX, stimuliCenterY, borderRadius, borderRadius, 0, 0, Math.PI*2);
+	        ctx.stroke();
+			
+		}
+		
+		//Function to draw the fixation cross
+		function drawFixationCross(){
+		      
+		    //Horizontal line
+		    ctx.beginPath();
+		    ctx.lineWidth = fixationCrossThickness;
+		    ctx.moveTo(canvasWidth/2 - fixationCrossWidth, canvasHeight/2);
+		    ctx.lineTo(canvasWidth/2 + fixationCrossWidth, canvasHeight/2);
+		    ctx.fillStyle = fixationCrossColor;
+		    ctx.stroke();
+		    
+		    //Vertical line
+		    ctx.beginPath();
+		    ctx.lineWidth = fixationCrossThickness;
+		    ctx.moveTo(canvasWidth/2, canvasHeight/2 - fixationCrossHeight);
+		    ctx.lineTo(canvasWidth/2, canvasHeight/2 + fixationCrossHeight);
+		    ctx.fillStyle = fixationCrossColor;
+		    ctx.stroke();
+			
+		}
 
 		//Function to draw the lines
 		function drawLines(color){

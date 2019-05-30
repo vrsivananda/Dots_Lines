@@ -56,6 +56,12 @@ jsPsych.plugins["RDK"] = (function() {
 		      default: 500,
 		      description: "The length of stimulus presentation"
 		    },
+		    fixation_cross_duration: {
+		      type: jsPsych.plugins.parameterType.INT,
+		      pretty_name: "Fixation Cross duration",
+		      default: 500,
+		      description: "The length of fixation cross presentation before the stimulus presentation"
+		    },
 		    stimulus_duration: {
 		      type: jsPsych.plugins.parameterType.INT,
 		      pretty_name: "Stimulus duration",
@@ -239,6 +245,7 @@ jsPsych.plugins["RDK"] = (function() {
 		//Note on '||' logical operator: If the first option is 'undefined', it evalutes to 'false' and the second option is returned as the assignment
 		trial.choices = assignParameterValue(trial.choices, []);
 		trial.correct_choice = assignParameterValue(trial.correct_choice, undefined);
+		trial.fixation_cross_duration = assignParameterValue(trial.fixation_cross_duration, 500);
 		trial.trial_duration = assignParameterValue(trial.trial_duration, 500);
 		trial.stimulus_duration = assignParameterValue(trial.stimulus_duration, 500);
 		trial.response_ends_trial = assignParameterValue(trial.response_ends_trial, true);
@@ -292,7 +299,6 @@ jsPsych.plugins["RDK"] = (function() {
 		var backgroundColor = trial.background_color; //Color of the background
 		var apertureCenterX = trial.aperture_center_x; // The x-coordinate of center of the aperture on the screen, in pixels
 		var apertureCenterY = trial.aperture_center_y; // The y-coordinate of center of the aperture on the screen, in pixels
-		
 
 		/* RDK type parameter
 		** See Fig. 1 in Scase, Braddick, and Raymond (1996) for a visual depiction of these different signal selection rules and noise types
@@ -351,6 +357,7 @@ jsPsych.plugins["RDK"] = (function() {
 		var borderColor = trial.border_color; //The color of the border
 		
 		var stimulusDuration = trial.stimulus_duration;
+		var fixationCrossDuration = trial.fixation_cross_duration;
 
 
 
@@ -479,11 +486,38 @@ jsPsych.plugins["RDK"] = (function() {
 		//variable to store how many frames were presented.
 		var numberOfFrames = 0;
 		
-		//Timer to end phase1 (stimulus presentation) and start phase2 (get mouse and keyboard response)
-		var timeoutID = setTimeout(startPhase2, stimulusDuration);
+		//If we want a fixation cross and border, we draw it
+		if(fixationCross){
+			
+			// Update all the relevant dots
+			for(currentApertureNumber = 0; currentApertureNumber < nApertures; currentApertureNumber++){
+        
+				//Initialize the variables for each parameter
+				initializeCurrentApertureParameters(currentApertureNumber);
+				
+				//Draw the fixation cross
+				drawFixationCross();
+        
+      		}
+		}
+		
+		if(border){
+			
+			// Update all the relevant dots
+			for(currentApertureNumber = 0; currentApertureNumber < nApertures; currentApertureNumber++){
+        
+				//Initialize the variables for each parameter
+				initializeCurrentApertureParameters(currentApertureNumber);
+				
+				//Draw the fixation cross
+				drawBorder();
+        
+      		}
+		}
+		console.log("fixationCrossDuration: " + fixationCrossDuration);
 
 		//This runs the dot motion simulation, updating it according to the frame refresh rate of the screen.
-		animateDotMotion();
+		setTimeout(animateDotMotion, fixationCrossDuration);
 		
 		
 		//--------RDK variables and function calls end--------
@@ -1055,22 +1089,7 @@ jsPsych.plugins["RDK"] = (function() {
       
 		    //Draw the fixation cross if we want it
 		    if(fixationCross === true){
-		      
-		      //Horizontal line
-		      ctx.beginPath();
-		      ctx.lineWidth = fixationCrossThickness;
-		      ctx.moveTo(canvasWidth/2 - fixationCrossWidth, canvasHeight/2);
-		      ctx.lineTo(canvasWidth/2 + fixationCrossWidth, canvasHeight/2);
-		      ctx.fillStyle = fixationCrossColor;
-		      ctx.stroke();
-		      
-		      //Vertical line
-		      ctx.beginPath();
-		      ctx.lineWidth = fixationCrossThickness;
-		      ctx.moveTo(canvasWidth/2, canvasHeight/2 - fixationCrossHeight);
-		      ctx.lineTo(canvasWidth/2, canvasHeight/2 + fixationCrossHeight);
-		      ctx.fillStyle = fixationCrossColor;
-		      ctx.stroke();
+		    	drawFixationCross();
 		    }
       
 	      	//Draw the border if we want it
@@ -1079,6 +1098,27 @@ jsPsych.plugins["RDK"] = (function() {
       		}//End of if border === true
 	        
 		}//End of draw
+		
+		//Function to draw the fixation cross
+		function drawFixationCross(){
+		      
+		    //Horizontal line
+		    ctx.beginPath();
+		    ctx.lineWidth = fixationCrossThickness;
+		    ctx.moveTo(canvasWidth/2 - fixationCrossWidth, canvasHeight/2);
+		    ctx.lineTo(canvasWidth/2 + fixationCrossWidth, canvasHeight/2);
+		    ctx.fillStyle = fixationCrossColor;
+		    ctx.stroke();
+		    
+		    //Vertical line
+		    ctx.beginPath();
+		    ctx.lineWidth = fixationCrossThickness;
+		    ctx.moveTo(canvasWidth/2, canvasHeight/2 - fixationCrossHeight);
+		    ctx.lineTo(canvasWidth/2, canvasHeight/2 + fixationCrossHeight);
+		    ctx.fillStyle = fixationCrossColor;
+		    ctx.stroke();
+			
+		}
 		
 		//Function to draw the border
 		function drawBorder(){
@@ -1398,6 +1438,9 @@ jsPsych.plugins["RDK"] = (function() {
 			
 			//Start to listen to subject's key responses
 			startKeyboardListener(); 
+		
+			//Timer to end phase1 (stimulus presentation) and start phase2 (get mouse and keyboard response)
+			var timeoutID = setTimeout(startPhase2, stimulusDuration);
 									
 			//Delare a timestamp
 			var previousTimestamp;
