@@ -16,7 +16,7 @@ numberOfSubjects = fscanf(subjectListFileId,'%d');
 
 % Switches and dynamic parameters
 saveFigure = 1; % Save the figure
-nTrials = 677; % Number of trials in sa [THIS IS NOT CORRECT. NEEDS UPDATING]
+nTrials = 677; % Number of trials in sa
 choseDThreshold = 0.20; % %_chosenD to determine discarding
 
 % -------------------------------------------------------------
@@ -35,12 +35,6 @@ coherenceData.Dots.D   = [];
 coherenceData.Lines.T  = [];
 coherenceData.Lines.NT = [];
 coherenceData.Lines.D  = [];
-
-% Chosen stimuli data
-chosenStimuliData.Dots.correct     = [];
-chosenStimuliData.Dots.confidence  = [];
-chosenStimuliData.Lines.correct    = [];
-chosenStimuliData.Lines.confidence = [];
 
 
 % For loop that loops through all the subjects
@@ -84,8 +78,7 @@ for i = 1:numberOfSubjects
     % Get the coherence data
     coherenceData = getCoherenceData(sa, coherenceData);
     
-    % Get the chosenStimuliData
-    chosenStimuliData = getChosenStimuliData(sa, chosenStimuliData);
+    % Get the chosenStimuliD
     
     
     

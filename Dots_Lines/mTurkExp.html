@@ -382,7 +382,10 @@
             },
             keyforward: 'q',
             show_clickable_nav: true,
-            data: {trialType: 'instructions_p2'},
+            data: {
+            	trialType: 'instructions_p2',
+            	practicePoints: practicePoints
+            },
             on_finish: function(){
             	//Reset the practice points for practice_2
             	practicePoints = 0;
@@ -464,7 +467,7 @@
             type: 'instructions',
             pages: [
                 '<p> Well done!</p></p>You are done the practice trials! Hopefully you\'re somewhat familiar with the task and point system now.</p>',
-                '<p>We will be starting the main experiment next. There will no feedback given at the end of each trial, but we will show you your points at the end of each block. There will be 6 blocks total, with a break screen in between the blocks.</p><p> These trials will be more difficult than the practice trials, so don\'t worry if you don\'t know the answers. </p>',
+                '<p>We will be starting the main experiment next. There will no feedback given at the end of each trial, but we will show you your points at the end of each block. There will be 6 blocks total, with a break screen in between the blocks.</p><p> These trials are meant to be difficult, so don\'t worry if you don\'t know the answers. </p>',
                 '<p> If you are unsure of which circle has the most downward-moving dots or vertical lines, just take your best guess.</p><p>Remember that this task is meant to be difficult, so do not be discouraged if you are guessing much of the time.</p><p>Whenever you are ready, click "Next" below to start the actual trials.</p>'],
             show_clickable_nav: true,
             data: {trialType: 'instructions_actualTrials'}
@@ -517,6 +520,7 @@
     		for(let j = 0; j < nTrialsPerBlock; j++){
     			
     			let currentSlider = makeSampleSliderTrial();
+    			currentSlider.trialType = currentStimuliTrialType + "_confidence";
     			
     			//Make a copy of the template and fill in the parameters
     			let currentStimuliTrial = currentSampleStimuliFunction();
@@ -687,7 +691,8 @@
 	        prompt: "",
 	        trial_duration: feedbackTime,
 	        data: {
-	            trialType: 'restScreen'
+	            trialType: 'restScreen',
+	            actualPoints: actualPoints
 	        },
 	    };
 
