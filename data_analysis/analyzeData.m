@@ -16,7 +16,7 @@ numberOfSubjects = fscanf(subjectListFileId,'%d');
 
 % Switches and dynamic parameters
 saveFigure = 1; % Save the figure
-nTrials = 677; % Number of trials in sa [THIS IS NOT CORRECT. NEEDS UPDATING]
+nTrials = 682; % Number of trials in sa
 choseDThreshold = 0.20; % %_chosenD to determine discarding
 
 % -------------------------------------------------------------
@@ -100,7 +100,13 @@ end % End of for loop that loops through each subject
     
 % Add path to extra functions, generate colors for each subject
 addpath([pwd '/distinguishable_colors']);
-%colors = distinguishable_colors(size(ratingDifferenceData, 2));
+colors = distinguishable_colors(nValidSubjects);
+
+% Get the e_norm and e_unnorm data
+evidenceData = analyzeEvidence(chosenStimuliData, coherenceData);
+
+% Plot confidence vs percentCorrect
+plot_confidence_vs_percentCorrect(evidenceData, saveFigure);
 
 
 
