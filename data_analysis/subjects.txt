@@ -1,4 +1,17 @@
 9
+workerId_1560281900
+workerId_1560279473
+workerId_1560278059
+workerId_1560282883
+workerId_1560283057
+workerId_1560281582
+workerId_1560281701
+workerId_1560278155
+workerId_1560284694
+%---------------------
+Subjects below this line had a lower coherence for dots
+Dots coherence increased in the subjects above.
+9
 workerId_1559763170
 workerId_1559765453
 workerId_1559763934
