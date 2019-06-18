@@ -22,7 +22,7 @@ javaaddpath('mysql-connector-java-5.1.42-bin.jar');
 
 % Create a connection object by connecting to our SQL database.
 databaseUsername = '';
-databasePassword = '!';
+databasePassword = '';
 databaseName = '';
 tableName = '';
 serverAddess = '';

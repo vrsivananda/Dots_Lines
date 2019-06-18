@@ -1,4 +1,17 @@
 9
+workerId_1560793132
+workerId_1560788951
+workerId_1560793409
+workerId_1560788533
+workerId_1560790061
+workerId_1560790523
+workerId_1560791104
+workerId_1560790847
+workerId_1560791713
+%---------------------
+Subjects below this line had 2000ms presentation for dots
+Dot presentation time increased to 3000ms in the subjects above.
+9
 workerId_1560281900
 workerId_1560279473
 workerId_1560278059
