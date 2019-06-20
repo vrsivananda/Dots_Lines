@@ -1,3 +1,17 @@
+10
+workerId_1560883746
+workerId_1560883962
+workerId_1560881427
+workerId_1560885007
+workerId_1560884811
+workerId_1560885050
+workerId_1560882354
+workerId_1560887024
+workerId_1560882804
+workerId_1560883347
+%---------------------
+Subjects below this line had black lines.
+Line color have been changed to  "LightGray"/RGB(211,211,211) for the subjects above
 9
 workerId_1560793132
 workerId_1560788951

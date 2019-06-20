@@ -21,11 +21,11 @@ close all;
 javaaddpath('mysql-connector-java-5.1.42-bin.jar');
 
 % Create a connection object by connecting to our SQL database.
-databaseUsername = '';
-databasePassword = '';
-databaseName = '';
-tableName = '';
-serverAddess = '';
+databaseUsername = 'hothResearcher';
+databasePassword = 'hothDatabaseA120!';
+databaseName = 'onlineExperiments';
+tableName = 'Dots_Lines';
+serverAddess = 'hoth.engr.ucr.edu';
 conn = database(databaseName,databaseUsername,databasePassword,'Vendor','MySQL',...
     'Server',serverAddess);
 
